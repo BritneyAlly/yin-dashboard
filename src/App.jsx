@@ -405,7 +405,7 @@ export default function Dashboard() {
                 + Add food
               </button>
               {showFiberMenu && (
-                <div style={{position:"relative"",left:0,right:0,zIndex:9999,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:500,overflowY:"auto",marginTop:4}}>
+                <div style={{position:"relative",left:0,right:0,zIndex:9999,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:500,overflowY:"auto",marginTop:4}}>
                   {FIBER_FOODS.map(f=>f.name==="Custom"?(
                     <div key="custom" style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)"}}>
                       <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 6px",fontWeight:500}}>Custom entry</p>
