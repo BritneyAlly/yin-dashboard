@@ -197,7 +197,8 @@ export default function Dashboard() {
   const todaySkincare = SKINCARE_SCHEDULE[todayDOW];
 
   const inp = { fontFamily:"'DM Sans',sans-serif", fontSize:13, color:"#2a1a3a", background:"rgba(245,238,252,0.55)", border:"1px solid rgba(200,180,225,0.4)", borderRadius:10, padding:"8px 12px", outline:"none", width:"100%" };
-  const cardStyle = (delay=0) => ({ background:"rgba(255,251,254,0.86)", backdropFilter:"blur(16px)", borderRadius:20, padding:"18px 20px", marginBottom:12, border:"1px solid rgba(220,200,235,0.45)", boxShadow:"0 2px 24px rgba(140,100,180,0.07)", animation:`fadeUp 0.4s ${delay}s ease forwards`, opacity:0 });
+  const cardStyle = (delay=0) => ({
+  overflow: "visible", background:"rgba(255,251,254,0.86)", backdropFilter:"blur(16px)", borderRadius:20, padding:"18px 20px", marginBottom:12, border:"1px solid rgba(220,200,235,0.45)", boxShadow:"0 2px 24px rgba(140,100,180,0.07)", animation:`fadeUp 0.4s ${delay}s ease forwards`, opacity:0 });
   const pillBtn = (active, color="#9060c0") => ({ padding:"7px 18px", borderRadius:30, border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12.5, fontWeight:500, letterSpacing:0.4, background:active?color:"rgba(235,225,248,0.7)", color:active?"#fff":"#9070b0", boxShadow:active?`0 3px 12px ${color}55`:"none", transition:"all 0.2s" });
 
   const Row = ({ label, k, note, color="#9060c0" }) => {
