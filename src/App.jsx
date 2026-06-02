@@ -397,9 +397,7 @@ export default function Dashboard() {
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080b0",margin:"2px 0 0"}}>of 25g</p>
               </div>
             </div>
-            <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>position:"relative"
-              <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:"linear-gradient(90deg,#90c860,#50a840)",borderRadius:3,transition:"width 0.4s ease"}}/>
-            </div>
+          
             <div style={{position:"relative"}} ref={fiberRef}>
               <button onClick={()=>setShowFiberMenu(v=>!v)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1px dashed rgba(140,180,100,0.5)",background:"rgba(160,210,120,0.1)",color:"#4a7a30",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>
                 + Add food
