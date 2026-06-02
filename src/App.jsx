@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const SK = "yin-final-v1";
-const load = () => { try { const r = window.localStorage?.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
-const save = (s) => { try { window.localStorage?.setItem(SK, JSON.stringify(s)); } catch {} };
+const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
+const save = (s) => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 const getWeekMon = () => {
