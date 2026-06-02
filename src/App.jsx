@@ -369,7 +369,7 @@ export default function Dashboard() {
                 <button onClick={()=>{if(teaInput.trim())addTea(teaInput.trim());}} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890b8,#9860b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,flexShrink:0}}>+ Log</button>
               </div>
               {showTeaMenu && (
-                <div style={{position:"absolute",top:"100%",left:0,right:56,zIndex:50,background:"rgba(255,250,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(140,100,180,0.18)",border:"1px solid rgba(200,180,225,0.4)",maxHeight:200,overflowY:"auto"}}>
+                <div style={{position:"relative",left:0,right:56,zIndex:50,background:"rgba(255,250,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(140,100,180,0.18)",border:"1px solid rgba(200,180,225,0.4)",maxHeight:200,overflowY:"auto"}}>
                   {TEAS.filter(t=>t.toLowerCase().includes(teaInput.toLowerCase())).map(t=>(
                     <div key={t} onClick={()=>addTea(t)} className="rhov" style={{padding:"9px 14px",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#4a2a6a",cursor:"pointer",borderBottom:"1px solid rgba(200,180,220,0.12)"}}>{t}</div>
                   ))}
@@ -397,7 +397,7 @@ export default function Dashboard() {
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080b0",margin:"2px 0 0"}}>of 25g</p>
               </div>
             </div>
-            <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>
+            <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>position:"relative"
               <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:"linear-gradient(90deg,#90c860,#50a840)",borderRadius:3,transition:"width 0.4s ease"}}/>
             </div>
             <div style={{position:"relative"}} ref={fiberRef}>
@@ -405,7 +405,7 @@ export default function Dashboard() {
                 + Add food
               </button>
               {showFiberMenu && (
-                <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:9999,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:500,overflowY:"auto",marginTop:4}}>
+                <div style={{position:"relative"",left:0,right:0,zIndex:9999,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:500,overflowY:"auto",marginTop:4}}>
                   {FIBER_FOODS.map(f=>f.name==="Custom"?(
                     <div key="custom" style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)"}}>
                       <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 6px",fontWeight:500}}>Custom entry</p>
