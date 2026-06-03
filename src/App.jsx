@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const SK = "yin-final-v1";
 const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
@@ -15,7 +15,6 @@ const DOW = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturd
 const today = new Date();
 const todayDOW = DOW[today.getDay()];
 const isSunday = todayDOW === "Sunday";
-
 
 const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
@@ -110,15 +109,9 @@ export default function Dashboard() {
   const [networkName, setNetworkName] = useState("");
   const [networkNote, setNetworkNote] = useState("");
   const [networkFollowUp, setNetworkFollowUp] = useState("");
+  const teaRef = useRef();
+  const fiberRef = useRef();
 
-const [selectedDate, setSelectedDate] = useState(todayKey());
-const [eventDate, setEventDate] = useState("");
-const [eventTitle, setEventTitle] = useState("");
-const [events, setEvents] = useState(() => load().events || []);
-
-const teaRef = useRef();
-const fiberRef = useRef();
-  
   const today_k = todayKey();
   const week_k = getWeekMon();
   const month_k = getMonth();
@@ -204,8 +197,7 @@ const fiberRef = useRef();
   const todaySkincare = SKINCARE_SCHEDULE[todayDOW];
 
   const inp = { fontFamily:"'DM Sans',sans-serif", fontSize:13, color:"#2a1a3a", background:"rgba(245,238,252,0.55)", border:"1px solid rgba(200,180,225,0.4)", borderRadius:10, padding:"8px 12px", outline:"none", width:"100%" };
-  const cardStyle = (delay=0) => ({
-  overflow: "visible", background:"rgba(255,251,254,0.86)", backdropFilter:"blur(16px)", borderRadius:20, padding:"18px 20px", marginBottom:12, border:"1px solid rgba(220,200,235,0.45)", boxShadow:"0 2px 24px rgba(140,100,180,0.07)", animation:`fadeUp 0.4s ${delay}s ease forwards`, opacity:0 });
+  const cardStyle = (delay=0) => ({ background:"rgba(255,251,254,0.86)", backdropFilter:"blur(16px)", borderRadius:20, padding:"18px 20px", marginBottom:12, border:"1px solid rgba(220,200,235,0.45)", boxShadow:"0 2px 24px rgba(140,100,180,0.07)", animation:`fadeUp 0.4s ${delay}s ease forwards`, opacity:0 });
   const pillBtn = (active, color="#9060c0") => ({ padding:"7px 18px", borderRadius:30, border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12.5, fontWeight:500, letterSpacing:0.4, background:active?color:"rgba(235,225,248,0.7)", color:active?"#fff":"#9070b0", boxShadow:active?`0 3px 12px ${color}55`:"none", transition:"all 0.2s" });
 
   const Row = ({ label, k, note, color="#9060c0" }) => {
@@ -324,7 +316,7 @@ const fiberRef = useRef();
 
       {/* NAV */}
       <div style={{display:"flex",justifyContent:"center",gap:6,padding:"14px 14px 8px",flexWrap:"wrap"}}>
-        {[["today","Today"],["weekly","Weekly"],["income","Income"],["trades","Trading"],["network","Network"],["calendar","Calendar"],["notes","Notes"]].map(([k,l])=>(
+        {[["today","Today"],["weekly","Weekly"],["income","Income"],["trades","Trading"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -376,7 +368,7 @@ const fiberRef = useRef();
                 <button onClick={()=>{if(teaInput.trim())addTea(teaInput.trim());}} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890b8,#9860b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,flexShrink:0}}>+ Log</button>
               </div>
               {showTeaMenu && (
-                <div style={{position:"relative",left:0,right:56,zIndex:50,background:"rgba(255,250,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(140,100,180,0.18)",border:"1px solid rgba(200,180,225,0.4)",maxHeight:200,overflowY:"auto"}}>
+                <div style={{position:"absolute",top:"100%",left:0,right:56,zIndex:50,background:"rgba(255,250,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(140,100,180,0.18)",border:"1px solid rgba(200,180,225,0.4)",maxHeight:200,overflowY:"auto"}}>
                   {TEAS.filter(t=>t.toLowerCase().includes(teaInput.toLowerCase())).map(t=>(
                     <div key={t} onClick={()=>addTea(t)} className="rhov" style={{padding:"9px 14px",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#4a2a6a",cursor:"pointer",borderBottom:"1px solid rgba(200,180,220,0.12)"}}>{t}</div>
                   ))}
@@ -404,40 +396,22 @@ const fiberRef = useRef();
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080b0",margin:"2px 0 0"}}>of 25g</p>
               </div>
             </div>
-          
+            <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>
+              <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:"linear-gradient(90deg,#90c860,#50a840)",borderRadius:3,transition:"width 0.4s ease"}}/>
+            </div>
             <div style={{position:"relative"}} ref={fiberRef}>
               <button onClick={()=>setShowFiberMenu(v=>!v)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1px dashed rgba(140,180,100,0.5)",background:"rgba(160,210,120,0.1)",color:"#4a7a30",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>
                 + Add food
               </button>
               {showFiberMenu && (
-                <div style={{position:"relative",left:0,right:0,zIndex:9999,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:500,overflowY:"auto",marginTop:4}}>
+                <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:50,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:260,overflowY:"auto",marginTop:4}}>
                   {FIBER_FOODS.map(f=>f.name==="Custom"?(
                     <div key="custom" style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)"}}>
                       <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 6px",fontWeight:500}}>Custom entry</p>
                       <div style={{display:"flex",gap:6}}>
                         <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,flex:2,fontSize:12,padding:"6px 10px"}}/>
                         <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="g" type="number" style={{...inp,flex:"0 0 60px",fontSize:12,padding:"6px 10px"}}/>
-                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}>
-  onClick={()=>{
-    if(!eventDate || !eventTitle) return;
-    setEvents([...events,{
-      id: Date.now(),
-      date: eventDate,
-      title: eventTitle
-    }]);
-    setEventDate("");
-    setEventTitle("");
-  }}
-  style={{
-    marginTop:10,
-    padding:"10px 16px",
-    borderRadius:10,
-    border:"none",
-    cursor:"pointer"
-  }}
->
-  Add
-</button>
+                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}>Add</button>
                       </div>
                     </div>
                   ):(
@@ -690,60 +664,7 @@ const fiberRef = useRef();
             }
           </div>
         </>)}
-       
-       {tab==="calendar" && (<>
-          <div style={cardStyle(0)}>
-            <SectionHead icon="📅" title="Calendar" sub="Track due dates and appointments" />
 
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e=>setSelectedDate(e.target.value)}
-              style={inp}
-            />
-
-            <div style={{display:"flex",gap:8,marginTop:10}}>
-              <input
-                value={eventTitle}
-                onChange={e=>setEventTitle(e.target.value)}
-                placeholder="Add event"
-                style={{...inp,flex:1}}
-              />
-
-              <button
-                onClick={()=>{
-                  if(!eventTitle) return;
-                  setEvents([
-                    ...events,
-                    {id:Date.now(),date:selectedDate,title:eventTitle}
-                  ]);
-                  setEventTitle("");
-                }}
-              >
-                Add
-              </button>
-            </div>
-
-            <div style={{marginTop:16}}>
-              {events
-                .filter(e => e.date === selectedDate)
-                .map(e => (
-                  <div
-                    key={e.id}
-                    style={{
-                      padding:"10px",
-                      marginBottom:"8px",
-                      border:"1px solid #ddd",
-                      borderRadius:"8px"
-                    }}
-                  >
-                    {e.title}
-                  </div>
-                ))
-              }
-            </div>
-          </div>
-        </>)}
         {/* ══ NOTES ══ */}
         {tab==="notes" && (<>
           <div style={cardStyle(0)}>
