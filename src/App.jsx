@@ -317,7 +317,7 @@ export default function Dashboard() {
 
       {/* NAV */}
       <div style={{display:"flex",justifyContent:"center",gap:6,padding:"14px 14px 8px",flexWrap:"wrap"}}>
-        {[["today","Today"],["weekly","Weekly"],["income","Income"],["trades","Trading"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
+        {[["today","Today"],["weekly","Weekly"],["income","Income"],["trades","Trading"],["network","Network"],["calendar","Calendar"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
