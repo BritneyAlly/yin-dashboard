@@ -688,40 +688,8 @@ export default function Dashboard() {
             }
           </div>
         </>)}
-        {/* ══ CALENDAR ══ */}
-        {tab==="calendar" && (<>
-          <div style={cardStyle(0)}>
-            <SectionHead icon="📅" title="Calendar" sub="Due dates and reminders" />
-<input
-  type="date"
-  value={eventDate}
-  onChange={e=>setEventDate(e.target.value)}
-  style={inp}
-/>
-
-<input
-  <input
-  value={eventTitle}
-  onChange={e=>setEventTitle(e.target.value)}
-  placeholder="What is due?"
-  style={{...inp, marginTop:10}}
-/>
-  style={{...inp, marginTop:10}}
-/>
-
-<button
-  style={{
-    marginTop:10,
-    padding:"10px 16px",
-    borderRadius:10,
-    border:"none",
-    cursor:"pointer"
-  }}
->
-  Add
-</button>
-          </div>
-        </>)}        {tab==="calendar" && (<>
+       
+       {tab==="calendar" && (<>
           <div style={cardStyle(0)}>
             <SectionHead icon="📅" title="Calendar" sub="Track due dates and appointments" />
 
