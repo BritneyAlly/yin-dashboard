@@ -663,7 +663,15 @@ export default function Dashboard() {
             }
           </div>
         </>)}
-
+        {/* ══ CALENDAR ══ */}
+        {tab==="calendar" && (<>
+          <div style={cardStyle(0)}>
+            <SectionHead icon="📅" title="Calendar" sub="Due dates and reminders" />
+            <p style={{fontFamily:"'DM Sans',sans-serif"}}>
+              Calendar coming next. This confirms the tab is working.
+            </p>
+          </div>
+        </>)}
         {/* ══ NOTES ══ */}
         {tab==="notes" && (<>
           <div style={cardStyle(0)}>
