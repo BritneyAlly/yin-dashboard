@@ -16,10 +16,6 @@ const today = new Date();
 const todayDOW = DOW[today.getDay()];
 const isSunday = todayDOW === "Sunday";
 
-const [selectedDate, setSelectedDate] = useState(todayKey());
-const [eventDate, setEventDate] = useState("");
-const [eventTitle, setEventTitle] = useState("");
-const [events, setEvents] = useState(() => load().events || []);
 
 const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
@@ -114,6 +110,14 @@ export default function Dashboard() {
   const [networkName, setNetworkName] = useState("");
   const [networkNote, setNetworkNote] = useState("");
   const [networkFollowUp, setNetworkFollowUp] = useState("");
+
+const [selectedDate, setSelectedDate] = useState(todayKey());
+const [eventDate, setEventDate] = useState("");
+const [eventTitle, setEventTitle] = useState("");
+const [events, setEvents] = useState(() => load().events || []);
+
+const teaRef = useRef();
+const fiberRef = useRef();
   const teaRef = useRef();
   const fiberRef = useRef();
 
