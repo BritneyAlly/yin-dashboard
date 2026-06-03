@@ -118,9 +118,7 @@ const [events, setEvents] = useState(() => load().events || []);
 
 const teaRef = useRef();
 const fiberRef = useRef();
-  const teaRef = useRef();
-  const fiberRef = useRef();
-
+  
   const today_k = todayKey();
   const week_k = getWeekMon();
   const month_k = getMonth();
