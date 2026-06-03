@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
+import { supabase } from './supabase.js'
 
 const SK = "yin-final-v1";
 const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
 const save = (s) => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
+const saveCloud = async (s) => { try { await supabase.from('dashboard_data').upsert({ id: 'yin', data: s, updated_at: new Date() }); } catch {} };
+const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || {}; } catch { return {}; } };
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 const getWeekMon = () => {
@@ -94,6 +97,7 @@ function streakEmoji(s) {
 
 export default function Dashboard() {
   const [data, setData] = useState(load);
+  useEffect(() => { loadCloud().then(cloud => { if (cloud && Object.keys(cloud).length > 0) setData(cloud); }); }, []);
   const [tab, setTab] = useState("today");
   const [affirmIdx, setAffirmIdx] = useState(0);
   const [teaInput, setTeaInput] = useState("");
@@ -121,7 +125,7 @@ export default function Dashboard() {
   const month_k = getMonth();
   const isMandatoryThreadsDay = THREADS_DAYS.includes(todayDOW);
 
-  useEffect(() => { save(data); }, [data]);
+  useEffect(() => { save(data); saveCloud(data); }, [data]);
   useEffect(() => {
     const t = setInterval(() => setAffirmIdx(i => (i + 1) % AFFIRMATIONS.length), 7000);
     return () => clearInterval(t);
