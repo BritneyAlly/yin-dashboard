@@ -16,6 +16,11 @@ const today = new Date();
 const todayDOW = DOW[today.getDay()];
 const isSunday = todayDOW === "Sunday";
 
+const [selectedDate, setSelectedDate] = useState(todayKey());
+const [eventDate, setEventDate] = useState("");
+const [eventTitle, setEventTitle] = useState("");
+const [events, setEvents] = useState(() => load().events || []);
+
 const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
   "My body is healing, strengthening, and thriving. I give it what it needs and it rewards me abundantly.",
@@ -410,7 +415,27 @@ export default function Dashboard() {
                       <div style={{display:"flex",gap:6}}>
                         <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,flex:2,fontSize:12,padding:"6px 10px"}}/>
                         <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="g" type="number" style={{...inp,flex:"0 0 60px",fontSize:12,padding:"6px 10px"}}/>
-                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}>Add</button>
+                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}<button
+  onClick={()=>{
+    if(!eventDate || !eventTitle) return;
+    setEvents([...events,{
+      id: Date.now(),
+      date: eventDate,
+      title: eventTitle
+    }]);
+    setEventDate("");
+    setEventTitle("");
+  }}
+  style={{
+    marginTop:10,
+    padding:"10px 16px",
+    borderRadius:10,
+    border:"none",
+    cursor:"pointer"
+  }}
+>
+  Add
+</button>
                       </div>
                     </div>
                   ):(
@@ -667,9 +692,86 @@ export default function Dashboard() {
         {tab==="calendar" && (<>
           <div style={cardStyle(0)}>
             <SectionHead icon="📅" title="Calendar" sub="Due dates and reminders" />
-            <p style={{fontFamily:"'DM Sans',sans-serif"}}>
-              Calendar coming next. This confirms the tab is working.
-            </p>
+<input
+  type="date"
+  value={eventDate}
+  onChange={e=>setEventDate(e.target.value)}
+  style={inp}
+/>
+
+<input
+  <input
+  value={eventTitle}
+  onChange={e=>setEventTitle(e.target.value)}
+  placeholder="What is due?"
+  style={{...inp, marginTop:10}}
+/>
+  style={{...inp, marginTop:10}}
+/>
+
+<button
+  style={{
+    marginTop:10,
+    padding:"10px 16px",
+    borderRadius:10,
+    border:"none",
+    cursor:"pointer"
+  }}
+>
+  Add
+</button>
+          </div>
+        </>)}        {tab==="calendar" && (<>
+          <div style={cardStyle(0)}>
+            <SectionHead icon="📅" title="Calendar" sub="Track due dates and appointments" />
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e=>setSelectedDate(e.target.value)}
+              style={inp}
+            />
+
+            <div style={{display:"flex",gap:8,marginTop:10}}>
+              <input
+                value={eventTitle}
+                onChange={e=>setEventTitle(e.target.value)}
+                placeholder="Add event"
+                style={{...inp,flex:1}}
+              />
+
+              <button
+                onClick={()=>{
+                  if(!eventTitle) return;
+                  setEvents([
+                    ...events,
+                    {id:Date.now(),date:selectedDate,title:eventTitle}
+                  ]);
+                  setEventTitle("");
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            <div style={{marginTop:16}}>
+              {events
+                .filter(e => e.date === selectedDate)
+                .map(e => (
+                  <div
+                    key={e.id}
+                    style={{
+                      padding:"10px",
+                      marginBottom:"8px",
+                      border:"1px solid #ddd",
+                      borderRadius:"8px"
+                    }}
+                  >
+                    {e.title}
+                  </div>
+                ))
+              }
+            </div>
           </div>
         </>)}
         {/* ══ NOTES ══ */}
