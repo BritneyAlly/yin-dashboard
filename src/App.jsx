@@ -415,7 +415,7 @@ export default function Dashboard() {
                       <div style={{display:"flex",gap:6}}>
                         <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,flex:2,fontSize:12,padding:"6px 10px"}}/>
                         <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="g" type="number" style={{...inp,flex:"0 0 60px",fontSize:12,padding:"6px 10px"}}/>
-                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}<button
+                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}>
   onClick={()=>{
     if(!eventDate || !eventTitle) return;
     setEvents([...events,{
