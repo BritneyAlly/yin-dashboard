@@ -97,7 +97,6 @@ function streakEmoji(s) {
 
 export default function Dashboard() {
   const [data, setData] = useState(load);
-  useEffect(() => { loadCloud().then(cloud => { if (cloud && Object.keys(cloud).length > 0) setData(cloud); }); }, []);
   const [tab, setTab] = useState("today");
   const [affirmIdx, setAffirmIdx] = useState(0);
   const [teaInput, setTeaInput] = useState("");
@@ -126,6 +125,7 @@ export default function Dashboard() {
   const isMandatoryThreadsDay = THREADS_DAYS.includes(todayDOW);
 
   useEffect(() => { save(data); saveCloud(data); }, [data]);
+  useEffect(() => { loadCloud().then(cloud => { if (cloud && Object.keys(cloud).length > 0) setData(cloud); }); }, []);
   useEffect(() => {
     const t = setInterval(() => setAffirmIdx(i => (i + 1) % AFFIRMATIONS.length), 7000);
     return () => clearInterval(t);
