@@ -957,12 +957,144 @@ export default function Dashboard() {
             </p>
           </div>
 
+          {/* AUTOMATIC MONTHLY REPORT */}
+          {(() => {
+            const [reportYear, reportMonthNum] = month_k.split("-").map(Number);
+            const daysInMonth = new Date(reportYear, reportMonthNum, 0).getDate();
+            const allDays = Array.from({length: daysInMonth}, (_, i) => {
+              const d = `${reportYear}-${String(reportMonthNum).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+              return { key: d, habits: (data.daily||{})[d] || {} };
+            });
+            const daysWithData = allDays.filter(d => Object.keys(d.habits).length > 0);
+            const totalDays = daysWithData.length;
+
+            // Habit completion
+            const habitScores = dailyChecks.map(hk => ({
+              key: hk,
+              count: daysWithData.filter(d => d.habits[hk]).length
+            }));
+            const avgCompletion = totalDays > 0 ? Math.round(daysWithData.reduce((s,d) => {
+              const done = dailyChecks.filter(hk => d.habits[hk]).length;
+              return s + (done / dailyChecks.length) * 100;
+            }, 0) / totalDays) : 0;
+
+            // Mood
+            const moodDays = daysWithData.filter(d => d.habits.mood > 0);
+            const avgMood = moodDays.length > 0 ? (moodDays.reduce((s,d) => s + (d.habits.mood||0), 0) / moodDays.length).toFixed(1) : null;
+            const moodLabels = ["","Rough","Low","Okay","Good","Thriving"];
+
+            // Fiber
+            const fiberDaysHit = daysWithData.filter(d => (d.habits.fiber||[]).reduce((s,e)=>s+e.g,0) >= 25).length;
+
+            // Weekly data
+            const weeklyData = data.weekly || {};
+            const monthWorkouts = Object.entries(weeklyData).filter(([wk]) => wk.startsWith(month_k.slice(0,7).replace("-",""))||true).reduce((s,[,v]) => s + (v.workout||0), 0);
+            const monthWalks = Object.values(weeklyData).reduce((s,v) => s + (v.walk||0), 0);
+            const monthReads = Object.values(weeklyData).reduce((s,v) => s + (v.read||0), 0);
+
+            // Wins
+            const wins = daysWithData.filter(d => d.habits.win && d.habits.win.trim().length > 0);
+
+            // Streak best
+            let bestStreak = 0, currentStreak = 0;
+            allDays.forEach(d => {
+              const done = dailyChecks.filter(hk => d.habits[hk]).length;
+              if ((done / dailyChecks.length) >= 0.6) { currentStreak++; bestStreak = Math.max(bestStreak, currentStreak); }
+              else currentStreak = 0;
+            });
+
+            const statCard = (icon, label, value, sub, color) => (
+              <div style={{background:`${color}12`,borderRadius:14,padding:"12px 14px",border:`1px solid ${color}30`,textAlign:"center"}}>
+                <p style={{fontSize:16,margin:"0 0 2px"}}>{icon}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:600,color,margin:0,lineHeight:1}}>{value}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#9070b0",margin:"3px 0 1px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{label}</p>
+                {sub&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a090b8",margin:0}}>{sub}</p>}
+              </div>
+            );
+
+            return (
+              <div style={cardStyle(0.08)}>
+                <div style={{marginBottom:14}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:20}}>📊</span>
+                    <span style={{fontSize:17,fontWeight:500,color:"#1e0e2e"}}>Monthly Report</span>
+                  </div>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#a080c0",marginTop:2,marginLeft:28,fontStyle:"italic"}}>{today.toLocaleString("default",{month:"long",year:"numeric"})} · {totalDays} active days tracked</p>
+                </div>
+
+                {totalDays === 0 ? (
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(150,120,180,0.5)",fontStyle:"italic",textAlign:"center",padding:"16px 0"}}>No data yet this month — start checking off habits and your report will build automatically 🌸</p>
+                ) : (<>
+                  {/* Hero stat */}
+                  <div style={{background:"linear-gradient(135deg,rgba(180,140,220,0.2),rgba(160,120,200,0.15))",borderRadius:16,padding:"16px",marginBottom:12,textAlign:"center",border:"1px solid rgba(160,120,200,0.25)"}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:48,fontWeight:700,color:"#7050a0",margin:0,lineHeight:1}}>{avgCompletion}%</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9070b0",margin:"4px 0 0",textTransform:"uppercase",letterSpacing:1.5}}>Average Daily Completion</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#b090c0",margin:"4px 0 0",fontStyle:"italic"}}>
+                      {avgCompletion >= 80 ? "Outstanding month 🔥" : avgCompletion >= 60 ? "Solid effort — keep building ✨" : avgCompletion >= 40 ? "Good start — push harder next month 💪" : "Every day is a new chance 🌱"}
+                    </p>
+                  </div>
+
+                  {/* Stats grid */}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+                    {statCard("🔥","Best Streak",`${bestStreak}d`,"consecutive days","#e8a090")}
+                    {statCard("🌡️","Avg Mood",avgMood?`${avgMood}/5`:"—",avgMood?moodLabels[Math.round(parseFloat(avgMood))]:"no data","#90c8a0")}
+                    {statCard("🌱","Fiber Days",`${fiberDaysHit}d`,`hit 25g+ goal`,"#80c860")}
+                    {statCard("💰","Income",`$${totalIncome.toFixed(0)}`,`${monthIncome.length} entries`,"#90c840")}
+                    {statCard("📈","Paper P&L",`${totalPaper>=0?"+":""}$${Math.abs(totalPaper).toFixed(0)}`,`${monthTrades.filter(t=>t.type==="paper").length} trades`,"#7878d0")}
+                    {statCard("🏆","Wins",`${wins.length}d`,`days with a win logged`,"#f0b040")}
+                  </div>
+
+                  {/* Habit breakdown */}
+                  <div style={{background:"rgba(200,180,230,0.1)",borderRadius:14,padding:"14px",marginBottom:12,border:"1px solid rgba(180,150,220,0.2)"}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#7050a0",margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>Habit Breakdown</p>
+                    {[
+                      {k:"vitaminIron",label:"Iron supplement"},
+                      {k:"vitaminD",label:"Vitamin D"},
+                      {k:"sleep7",label:"7–9hrs sleep"},
+                      {k:"skincareAM",label:"AM skincare"},
+                      {k:"todayTreatment",label:"PM treatment"},
+                      {k:"scalpMassage",label:"Scalp massage"},
+                      {k:"jobApps",label:"Job application"},
+                      {k:"tradingStudy",label:"Trading study"},
+                      {k:"threadsPost",label:"Threads post"},
+                      {k:"journaled",label:"Journaled"},
+                    ].map(({k,label}) => {
+                      const count = habitScores.find(h=>h.key===k)?.count || 0;
+                      const pctH = totalDays > 0 ? Math.round((count/totalDays)*100) : 0;
+                      const color = pctH >= 80 ? "#60b040" : pctH >= 50 ? "#c0a030" : "#c05050";
+                      return (
+                        <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a4a6a",flex:1,minWidth:120}}>{label}</span>
+                          <div style={{flex:2,height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pctH}%`,background:color,borderRadius:3,transition:"width 0.6s ease"}}/>
+                          </div>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color,minWidth:36,textAlign:"right"}}>{pctH}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Wins log */}
+                  {wins.length > 0 && (
+                    <div style={{background:"rgba(240,200,100,0.08)",borderRadius:14,padding:"14px",border:"1px solid rgba(220,180,60,0.2)"}}>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#9a7020",margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>🏆 Wins This Month</p>
+                      {wins.slice(-10).map(d=>(
+                        <div key={d.key} style={{display:"flex",gap:8,marginBottom:6,alignItems:"flex-start"}}>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b09040",minWidth:50,flexShrink:0,marginTop:2}}>{new Date(d.key+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#3a2a1a",margin:0,lineHeight:1.4}}>{d.habits.win}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>)}
+              </div>
+            );
+          })()}
+
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[
               {l:"Streak",v:`${streak}d ${streakEmoji(streak)}`,s:streak>=7?"Don't break the chain":streak>=1?"Keep going":"Start today",c:"#b890d0"},
-              {l:"Fiber",v:`${fiberTotal.toFixed(0)}g`,s:"of 25g daily goal",c:fiberTotal>=25?"#60b040":"#d08040"},
-              {l:"Income",v:`$${totalIncome.toFixed(0)}`,s:`${monthIncome.length} entries this month`,c:"#70b840"},
-              {l:"Paper P&L",v:`${totalPaper>=0?"+":""}$${Math.abs(totalPaper).toFixed(0)}`,s:`${monthTrades.filter(t=>t.type==="paper").length} paper trades`,c:"#7878d0"},
+              {l:"Today",v:`${pct}%`,s:`${doneCount}/${totalChecks} complete`,c:"#9878c0"},
             ].map(s=>(
               <div key={s.l} style={{...cardStyle(0),marginBottom:0,padding:"15px 16px"}}>
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080c0",letterSpacing:1.2,textTransform:"uppercase",margin:0}}>{s.l}</p>
