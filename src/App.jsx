@@ -1,12 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { createClient } from '@supabase/supabase-js'
-const supabase = createClient('https://uiphffkasqjoxefalfhw.supabase.co','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVpcGhmZmthc3Fqb3hlZmFsZmh3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0NjI2NjQsImV4cCI6MjA5NjAzODY2NH0.4mDybz8Laz3eB9GePXYYqLcKEXpLw9qqO49VTrtV6wA')
+import { useState, useEffect, useRef } from "react";
 
 const SK = "yin-final-v1";
 const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
 const save = (s) => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
-const saveCloud = async (s) => { try { await supabase.from('dashboard_data').upsert({ id: 'yin', data: s, updated_at: new Date() }); } catch {} };
-const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || {}; } catch { return {}; } };
 
 const todayKey = () => new Date().toISOString().split("T")[0];
 const getWeekMon = () => {
@@ -113,10 +109,6 @@ export default function Dashboard() {
   const [networkName, setNetworkName] = useState("");
   const [networkNote, setNetworkNote] = useState("");
   const [networkFollowUp, setNetworkFollowUp] = useState("");
-  const [calMonth, setCalMonth] = useState(new Date());
-  const [selectedDay, setSelectedDay] = useState(null);
-  const [newEvent, setNewEvent] = useState("");
-  const [eventType, setEventType] = useState("appointment");
   const teaRef = useRef();
   const fiberRef = useRef();
 
@@ -125,8 +117,7 @@ export default function Dashboard() {
   const month_k = getMonth();
   const isMandatoryThreadsDay = THREADS_DAYS.includes(todayDOW);
 
-  useEffect(() => { save(data); saveCloud(data); }, [data]);
-  useEffect(() => { loadCloud().then(cloud => { if (cloud && Object.keys(cloud).length > 0) setData(cloud); }); }, []);
+  useEffect(() => { save(data); }, [data]);
   useEffect(() => {
     const t = setInterval(() => setAffirmIdx(i => (i + 1) % AFFIRMATIONS.length), 7000);
     return () => clearInterval(t);
@@ -201,21 +192,6 @@ export default function Dashboard() {
   const dailyChecks = ["vitaminIron","vitaminD","skincareAM","skincarePM","todayTreatment","jobApps","tradingStudy","tradeSession","threadsPost","socialPost","journaled","sleep7","scalpMassage","lowManip"];
   const doneCount = dailyChecks.filter(k=>td(k)).length + (teaLog.length>0?1:0) + (fiberTotal>=25?1:0) + (mood>0?1:0) + (win.length>0?1:0);
   const totalChecks = dailyChecks.length + 4;
-  // Calendar
-  const calEvents = data.calEvents || {};
-  const calMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-  const calDayKey = (d) => d.toISOString().split("T")[0];
-  const addEvent = () => {
-    if (!newEvent.trim() || !selectedDay) return;
-    const entry = { text: newEvent.trim(), type: eventType, id: Date.now() };
-    setData(p => ({ ...p, calEvents: { ...p.calEvents, [selectedDay]: [...(p.calEvents?.[selectedDay]||[]), entry] } }));
-    setNewEvent("");
-  };
-  const removeEvent = (day, id) => setData(p => ({ ...p, calEvents: { ...p.calEvents, [day]: p.calEvents[day].filter(e=>e.id!==id) } }));
-  const getDaysInMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-  const getFirstDayOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
-  const eventTypeColors = { appointment:"#c090d0", bill:"#e8a070", reminder:"#70b8d0", personal:"#90c870" };
-
   const pct = Math.round((doneCount/totalChecks)*100);
   const streak = calcStreak(data.daily, dailyChecks);
   const todaySkincare = SKINCARE_SCHEDULE[todayDOW];
@@ -340,7 +316,7 @@ export default function Dashboard() {
 
       {/* NAV */}
       <div style={{display:"flex",justifyContent:"center",gap:6,padding:"14px 14px 8px",flexWrap:"wrap"}}>
-        {[["today","Today"],["weekly","Weekly"],["calendar","Calendar"],["income","Income"],["trades","Trading"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
+        {[["today","Today"],["weekly","Weekly"],["income","Income"],["trades","Trading"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -423,26 +399,27 @@ export default function Dashboard() {
             <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>
               <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:"linear-gradient(90deg,#90c860,#50a840)",borderRadius:3,transition:"width 0.4s ease"}}/>
             </div>
-            <div ref={fiberRef}>
+            <div style={{position:"relative"}} ref={fiberRef}>
               <button onClick={()=>setShowFiberMenu(v=>!v)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1px dashed rgba(140,180,100,0.5)",background:"rgba(160,210,120,0.1)",color:"#4a7a30",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>
-                {showFiberMenu ? "▲ Close" : "+ Add food"}
+                + Add food
               </button>
               {showFiberMenu && (
-                <div style={{marginTop:6,borderRadius:12,border:"1px solid rgba(160,200,120,0.3)",overflow:"hidden",background:"rgba(255,252,255,0.98)"}}>
-                  {FIBER_FOODS.filter(f=>f.name!=="Custom").map(f=>(
-                    <div key={f.name} onClick={()=>addFiber(f.name,f.g)} className="rhov" style={{display:"flex",justifyContent:"space-between",padding:"11px 14px",cursor:"pointer",borderBottom:"1px solid rgba(160,200,120,0.12)"}}>
+                <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:50,background:"rgba(255,252,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(100,160,80,0.15)",border:"1px solid rgba(160,200,120,0.3)",maxHeight:260,overflowY:"auto",marginTop:4}}>
+                  {FIBER_FOODS.map(f=>f.name==="Custom"?(
+                    <div key="custom" style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)"}}>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 6px",fontWeight:500}}>Custom entry</p>
+                      <div style={{display:"flex",gap:6}}>
+                        <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,flex:2,fontSize:12,padding:"6px 10px"}}/>
+                        <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="g" type="number" style={{...inp,flex:"0 0 60px",fontSize:12,padding:"6px 10px"}}/>
+                        <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"6px 12px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",flexShrink:0}}>Add</button>
+                      </div>
+                    </div>
+                  ):(
+                    <div key={f.name} onClick={()=>addFiber(f.name,f.g)} className="rhov" style={{display:"flex",justifyContent:"space-between",padding:"9px 14px",cursor:"pointer",borderBottom:"1px solid rgba(160,200,120,0.12)"}}>
                       <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#3a5a20"}}>{f.name}</span>
                       <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,color:"#5a8a30"}}>{f.g}g</span>
                     </div>
                   ))}
-                  <div style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)",background:"rgba(240,250,235,0.5)"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 8px",fontWeight:600}}>Custom food</p>
-                    <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,marginBottom:6,fontSize:13}}/>
-                    <div style={{display:"flex",gap:6}}>
-                      <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="Fiber grams (e.g. 4)" type="number" style={{...inp,flex:1,fontSize:13}}/>
-                      <button onClick={(e)=>{e.stopPropagation();if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",flexShrink:0,fontWeight:500}}>Add</button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -686,132 +663,6 @@ export default function Dashboard() {
               ))
             }
           </div>
-        </>)}
-
-        {/* ══ CALENDAR ══ */}
-        {tab==="calendar" && (<>
-          <div style={cardStyle(0)}>
-            {/* Month nav */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-              <h3 style={{fontSize:18,fontWeight:500,color:"#1e0e2e",margin:0}}>
-                {calMonth.toLocaleString("default",{month:"long",year:"numeric"})}
-              </h3>
-              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
-            </div>
-
-            {/* Day headers */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
-              {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>(
-                <div key={d} style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#a080b0",padding:"4px 0"}}>{d}</div>
-              ))}
-            </div>
-
-            {/* Calendar grid */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-              {Array(getFirstDayOfMonth(calMonth)).fill(null).map((_,i)=>(
-                <div key={`empty-${i}`}/>
-              ))}
-              {Array(getDaysInMonth(calMonth)).fill(null).map((_,i)=>{
-                const dayNum = i+1;
-                const dayDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), dayNum);
-                const dayKey = calDayKey(dayDate);
-                const isToday = dayKey === today_k;
-                const isSelected = dayKey === selectedDay;
-                const events = calEvents[dayKey] || [];
-                const hasEvents = events.length > 0;
-                return (
-                  <div key={dayNum} onClick={()=>setSelectedDay(isSelected ? null : dayKey)} style={{
-                    textAlign:"center", padding:"6px 2px", borderRadius:10, cursor:"pointer",
-                    background: isSelected ? "linear-gradient(135deg,#d0a0e0,#a070c0)" : isToday ? "rgba(180,140,220,0.2)" : "rgba(240,232,250,0.3)",
-                    border: isToday ? "2px solid rgba(160,120,200,0.5)" : "1px solid transparent",
-                    transition:"all 0.15s",
-                  }}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:isToday?700:400,color:isSelected?"#fff":isToday?"#6030a0":"#3a2a4a",margin:0}}>{dayNum}</p>
-                    {hasEvents && (
-                      <div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2,flexWrap:"wrap"}}>
-                        {events.slice(0,3).map(e=>(
-                          <div key={e.id} style={{width:5,height:5,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.8)":eventTypeColors[e.type]||"#c090d0"}}/>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12,paddingTop:10,borderTop:"1px solid rgba(200,180,220,0.2)"}}>
-              {Object.entries(eventTypeColors).map(([type,color])=>(
-                <div key={type} style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:color}}/>
-                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#8060a0",textTransform:"capitalize"}}>{type}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Selected day events */}
-          {selectedDay && (
-            <div style={cardStyle(0.04)}>
-              <SectionHead icon="📅" title={new Date(selectedDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})} sub=""/>
-
-              {/* Add event */}
-              <input value={newEvent} onChange={e=>setNewEvent(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEvent()}
-                placeholder="Add appointment, bill, or reminder…"
-                style={{...inp,marginBottom:8}}/>
-              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                {Object.entries(eventTypeColors).map(([type,color])=>(
-                  <button key={type} onClick={()=>setEventType(type)} style={{
-                    padding:"5px 12px",borderRadius:20,border:"none",cursor:"pointer",
-                    background:eventType===type?color:"rgba(235,225,248,0.7)",
-                    color:eventType===type?"#fff":"#8060a0",
-                    fontFamily:"'DM Sans',sans-serif",fontSize:11.5,fontWeight:500,textTransform:"capitalize",
-                    transition:"all 0.2s",
-                  }}>{type}</button>
-                ))}
-              </div>
-              <button onClick={addEvent} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add</button>
-
-              {/* Event list */}
-              {(calEvents[selectedDay]||[]).length===0
-                ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center"}}>Nothing scheduled — tap above to add</p>
-                : (calEvents[selectedDay]||[]).map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:6,background:`${eventTypeColors[e.type]||"#c090d0"}14`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}35`}}>
-                    <div style={{width:8,height:8,borderRadius:"50%",background:eventTypeColors[e.type]||"#c090d0",flexShrink:0}}/>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:"#2a1a3a",flex:1,margin:0}}>{e.text}</p>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",textTransform:"capitalize",flexShrink:0}}>{e.type}</span>
-                    <span onClick={()=>removeEvent(selectedDay,e.id)} style={{cursor:"pointer",color:"#c08090",fontSize:17,padding:4,flexShrink:0}}>×</span>
-                  </div>
-                ))
-              }
-            </div>
-          )}
-
-          {/* Upcoming events */}
-          {(() => {
-            const upcoming = [];
-            for (let i=0; i<30; i++) {
-              const d = new Date(); d.setDate(d.getDate()+i);
-              const k = calDayKey(d);
-              if (calEvents[k]?.length) {
-                calEvents[k].forEach(e => upcoming.push({...e, date:k, dateLabel: d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}));
-              }
-            }
-            if (!upcoming.length) return null;
-            return (
-              <div style={cardStyle(0.08)}>
-                <SectionHead icon="🔜" title="Upcoming (Next 30 Days)" sub=""/>
-                {upcoming.map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,marginBottom:5,background:`${eventTypeColors[e.type]||"#c090d0"}10`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}28`}}>
-                    <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:eventTypeColors[e.type]||"#9060c0",minWidth:36,flexShrink:0}}>{e.dateLabel}</div>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#2a1a3a",flex:1,margin:0}}>{e.text}</p>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b090c0",textTransform:"capitalize",flexShrink:0}}>{e.type}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
         </>)}
 
         {/* ══ NOTES ══ */}
