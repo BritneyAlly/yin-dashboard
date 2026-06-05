@@ -30,7 +30,6 @@ const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
   "My body is healing, strengthening, and thriving. I give it what it needs and it rewards me abundantly.",
   "Financial freedom is not a dream — it is my destination, and every action I take today moves me closer to it.",
-  "I'd rather die enormous than live dormant — that's how we on it.",
   "I am a sought-after hair health consultant who commands premium rates and changes lives.",
 ];
 
@@ -286,12 +285,32 @@ export default function Dashboard() {
         ::-webkit-scrollbar-thumb{background:rgba(180,140,210,0.3);border-radius:2px;}
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes affirmFade{0%{opacity:0;transform:translateY(5px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-5px)}}
+        @keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
         .rhov:hover{background:rgba(180,140,210,0.08)!important;}
         input::placeholder,textarea::placeholder{color:rgba(140,110,170,0.45);}
         select{-webkit-appearance:none;}
         button{transition:opacity 0.15s;}
         button:hover{opacity:0.82;}
+        .gold-shimmer{
+          background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fffacd 50%, #ffd700 75%, #b8860b 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 4s linear infinite;
+          font-family: 'Playfair Display', Georgia, serif;
+          font-style: italic;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+          line-height: 1.5;
+        }
       `}</style>
+
+      {/* MOTTO BANNER */}
+      <div style={{background:"linear-gradient(135deg,#1a0f00 0%,#2a1a00 50%,#1a1200 100%)",padding:"10px 20px",textAlign:"center",borderBottom:"1px solid rgba(218,165,32,0.3)"}}>
+        <p className="gold-shimmer" style={{margin:0}}>"I'd rather die enormous than live dormant — that's how we on it." — Jay-Z</p>
+      </div>
 
       {/* HEADER */}
       <div style={{background:"linear-gradient(135deg,#f0d8ec 0%,#ddd0ee 40%,#c8d5eb 100%)",padding:"26px 20px 22px",textAlign:"center",position:"relative",overflow:"hidden"}}>
