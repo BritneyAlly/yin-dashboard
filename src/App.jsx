@@ -30,7 +30,7 @@ const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
   "My body is healing, strengthening, and thriving. I give it what it needs and it rewards me abundantly.",
   "Financial freedom is not a dream — it is my destination, and every action I take today moves me closer to it.",
-  "I am worthy of a happy, healthy relationship and a full beautiful life. I am open, ready, and deserving of all of it.",
+  "I'd rather die enormous than live dormant — that's how we on it.",
   "I am a sought-after hair health consultant who commands premium rates and changes lives.",
 ];
 
@@ -383,7 +383,7 @@ export default function Dashboard() {
                     <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>completed</p>
                   </div>
                   {hMood>0&&<div style={{background:"rgba(160,120,200,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
-                    <p style={{fontSize:20,margin:0}}>{["😔","😐","🙂","😊","✨"][hMood-1]}</p>
+                    <p style={{fontSize:20,margin:0}}>{["😔","😐","🙂","😊","🌟"][hMood-1]}</p>
                     <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>{["Rough","Low","Okay","Good","Thriving"][hMood-1]}</p>
                   </div>}
                   {hFiber>0&&<div style={{background:"rgba(120,180,100,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
@@ -435,7 +435,7 @@ export default function Dashboard() {
                 const active=mood===n;
                 return (
                   <div key={n} onClick={()=>setTd("mood",n)} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRadius:12,cursor:"pointer",background:active?`${colors[n-1]}25`:"rgba(240,232,250,0.4)",border:`2px solid ${active?colors[n-1]:"transparent"}`,transition:"all 0.2s"}}>
-                    <p style={{fontSize:20,margin:"0 0 3px"}}>{["😔","😐","🙂","😊","✨"][n-1]}</p>
+                    <p style={{fontSize:20,margin:"0 0 3px"}}>{["😔","😐","🙂","😊","🌟"][n-1]}</p>
                     <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,color:active?colors[n-1]:"#a080b0",fontWeight:active?600:400,margin:0}}>{labels[n-1]}</p>
                   </div>
                 );
