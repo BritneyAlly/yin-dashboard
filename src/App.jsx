@@ -367,7 +367,7 @@ export default function Dashboard() {
             const hFiber = (hd.fiber||[]).reduce((s,e)=>s+e.g,0);
             const hWin = hd.win || "";
             const hMood = hd.mood || 0;
-            const moodLabels = ["","Rough","Low","Okay","Good","Thriving"];
+            const moodEmojis = ["","😔","😐","🙂","😊","🌟"];
             return (
               <div style={{...cardStyle(0), border:"2px solid rgba(160,120,200,0.4)", background:"rgba(245,238,255,0.9)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -383,8 +383,8 @@ export default function Dashboard() {
                     <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>completed</p>
                   </div>
                   {hMood>0&&<div style={{background:"rgba(160,120,200,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
-                    <p style={{fontSize:20,margin:0}}>{"😔😐🙂😊✨".split("")[hMood-1]}</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>{moodLabels[hMood]}</p>
+                    <p style={{fontSize:20,margin:0}}>{["😔","😐","🙂","😊","✨"][hMood-1]}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>{["Rough","Low","Okay","Good","Thriving"][hMood-1]}</p>
                   </div>}
                   {hFiber>0&&<div style={{background:"rgba(120,180,100,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
                     <p style={{fontSize:18,fontWeight:600,color:"#50a030",margin:0,fontFamily:"'DM Sans',sans-serif"}}>{hFiber.toFixed(0)}g</p>
