@@ -31,6 +31,7 @@ const AFFIRMATIONS = [
   "My body is healing, strengthening, and thriving. I give it what it needs and it rewards me abundantly.",
   "Financial freedom is not a dream — it is my destination, and every action I take today moves me closer to it.",
   "I am a sought-after hair health consultant who commands premium rates and changes lives.",
+  "If not me, then who?",
 ];
 
 const SKINCARE_SCHEDULE = {
@@ -307,8 +308,8 @@ export default function Dashboard() {
         }
       `}</style>
 
-      {/* MOTTO BANNER */}
-      <div style={{background:"linear-gradient(135deg,#1a0f00 0%,#2a1a00 50%,#1a1200 100%)",padding:"10px 20px",textAlign:"center",borderBottom:"1px solid rgba(218,165,32,0.3)"}}>
+      {/* MOTTO */}
+      <div style={{padding:"12px 20px 0",textAlign:"center"}}>
         <p className="gold-shimmer" style={{margin:0}}>"I'd rather die enormous than live dormant — that's how we on it." — Jay-Z</p>
       </div>
 
