@@ -125,6 +125,8 @@ export default function Dashboard() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [newEvent, setNewEvent] = useState("");
   const [eventType, setEventType] = useState("appointment");
+  const [newTodo, setNewTodo] = useState("");
+  const [todoType, setTodoType] = useState("personal");
   const teaRef = useRef();
   const fiberRef = useRef();
 
@@ -223,6 +225,18 @@ export default function Dashboard() {
   const getDaysInMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
   const getFirstDayOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
   const eventTypeColors = { appointment:"#c090d0", bill:"#e8a070", reminder:"#70b8d0", personal:"#90c870" };
+
+  // Todo list with carry-over
+  const allTodos = data.todos || [];
+  const addTodo = () => {
+    if (!newTodo.trim()) return;
+    setData(p => ({ ...p, todos: [...(p.todos||[]), { text: newTodo.trim(), type: todoType, done: false, id: Date.now(), created: today_k }] }));
+    setNewTodo("");
+  };
+  const toggleTodoItem = id => setData(p => ({ ...p, todos: (p.todos||[]).map(t => t.id===id ? {...t, done:!t.done, completedOn: !t.done ? today_k : null} : t) }));
+  const removeTodoItem = id => setData(p => ({ ...p, todos: (p.todos||[]).filter(t => t.id!==id) }));
+  const activeTodos = allTodos.filter(t => !t.done || t.completedOn === today_k);
+  const todayCalEvents = (data.calEvents||{})[today_k] || [];
 
   const pct = Math.round((doneCount/totalChecks)*100);
   const streak = calcStreak(data.daily, dailyChecks);
@@ -368,7 +382,7 @@ export default function Dashboard() {
 
       {/* NAV */}
       <div style={{display:"flex",justifyContent:"center",gap:6,padding:"14px 14px 8px",flexWrap:"wrap"}}>
-        {[["today","Today"],["weekly","Weekly"],["calendar","Calendar"],["income","Income"],["trades","Trading"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
+        {[["today","Today"],["weekly","Weekly"],["calendar","Calendar"],["finance","Finance"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
@@ -441,6 +455,69 @@ export default function Dashboard() {
           )}
 
           <div style={cardStyle(0)}>
+            <SectionHead icon="⚡" title="Command Center" sub="Your to-dos + what's on today"/>
+
+            {/* Today's calendar events */}
+            {todayCalEvents.length > 0 && (
+              <div style={{marginBottom:14}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9060c0",textTransform:"uppercase",letterSpacing:1,margin:"0 0 6px",fontWeight:600}}>📅 On the calendar today</p>
+                {todayCalEvents.map(e => (
+                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,marginBottom:4,background:`${eventTypeColors[e.type]||"#c090d0"}15`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}30`}}>
+                    <div style={{width:7,height:7,borderRadius:"50%",background:eventTypeColors[e.type]||"#c090d0",flexShrink:0}}/>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#2a1a3a",margin:0,flex:1}}>{e.text}</p>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b090c0",textTransform:"capitalize"}}>{e.type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add todo */}
+            <div style={{display:"flex",gap:6,marginBottom:10}}>
+              <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()}
+                placeholder="Add a to-do…" style={{...inp,flex:1,fontSize:13.5}}/>
+              <div style={{display:"flex",gap:4}}>
+                <button onClick={()=>setTodoType("business")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="business"?"#9060c0":"rgba(235,225,248,0.7)",color:todoType==="business"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Work</button>
+                <button onClick={()=>setTodoType("personal")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="personal"?"#e8a090":"rgba(235,225,248,0.7)",color:todoType==="personal"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Personal</button>
+                <button onClick={addTodo} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600}}>+</button>
+              </div>
+            </div>
+
+            {/* Todo list */}
+            {activeTodos.length === 0
+              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"rgba(140,110,160,0.45)",fontStyle:"italic"}}>Nothing on your list — add something above</p>
+              : (<>
+                {activeTodos.filter(t=>!t.done).map(t => {
+                  const isWork = t.type==="business";
+                  const color = isWork ? "#9060c0" : "#e8a090";
+                  return (
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 8px",borderRadius:10,marginBottom:4,background:`${color}0e`,transition:"background 0.15s",cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
+                      <div style={{width:20,height:20,borderRadius:6,flexShrink:0,border:`2px solid ${color}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s"}}/>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:"#2a1a3a",flex:1,margin:0,lineHeight:1.4}}>{t.text}</p>
+                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,fontWeight:600,color:"#fff",background:color,padding:"2px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.5,flexShrink:0}}>{isWork?"Work":"Personal"}</span>
+                      <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:"rgba(180,150,200,0.4)",fontSize:16,padding:2,lineHeight:1}}>×</span>
+                    </div>
+                  );
+                })}
+                {activeTodos.filter(t=>t.done).length>0&&(<>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"rgba(150,120,180,0.4)",textTransform:"uppercase",letterSpacing:1,margin:"10px 0 5px"}}>Done today</p>
+                  {activeTodos.filter(t=>t.done).map(t => {
+                    const color = t.type==="business" ? "#9060c0" : "#e8a090";
+                    return (
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 8px",borderRadius:10,marginBottom:3,opacity:0.5,cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
+                        <div style={{width:20,height:20,borderRadius:6,flexShrink:0,border:`2px solid ${color}`,background:color,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <span style={{color:"#fff",fontSize:10,fontWeight:800}}>✓</span>
+                        </div>
+                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#7a6a8a",flex:1,margin:0,textDecoration:"line-through"}}>{t.text}</p>
+                        <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:"rgba(180,150,200,0.3)",fontSize:16,padding:2}}>×</span>
+                      </div>
+                    );
+                  })}
+                </>)}
+              </>)
+            }
+          </div>
+
+          <div style={cardStyle(0.04)}>
             <SectionHead icon="🎯" title="Today's One Priority" sub="The single most important move you make today" />
             <input value={priority} onChange={e=>setTd("priority",e.target.value)} placeholder="What must happen today no matter what?" style={{...inp,fontSize:14,fontWeight:500}}/>
             {priority && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#9060c0",marginTop:6,fontStyle:"italic"}}>✦ Stay locked in.</p>}
@@ -671,10 +748,11 @@ export default function Dashboard() {
           </div>
         </>)}
 
-        {/* ══ INCOME ══ */}
-        {tab==="income" && (<>
+        {/* ══ FINANCE ══ */}
+        {tab==="finance" && (<>
+          {/* Income */}
           <div style={cardStyle(0)}>
-            <SectionHead icon="💵" title="Income Tracker" sub={today.toLocaleString("default",{month:"long",year:"numeric"})}/>
+            <SectionHead icon="💵" title="Income" sub={today.toLocaleString("default",{month:"long",year:"numeric"})}/>
             <div style={{background:"linear-gradient(135deg,rgba(180,230,150,0.25),rgba(140,210,110,0.18))",borderRadius:14,padding:"14px",marginBottom:14,border:"1px solid rgba(110,180,80,0.28)",textAlign:"center"}}>
               <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#3a6a20",letterSpacing:1.8,textTransform:"uppercase",margin:0}}>This Month</p>
               <p style={{fontSize:40,fontWeight:400,color:"#1a4a0a",margin:"4px 0 0",fontStyle:"italic"}}>${totalIncome.toFixed(2)}</p>
@@ -697,12 +775,10 @@ export default function Dashboard() {
               ))
             }
           </div>
-        </>)}
 
-        {/* ══ TRADING ══ */}
-        {tab==="trades" && (<>
-          <div style={cardStyle(0)}>
-            <SectionHead icon="📈" title="Trade Tracker" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · Goal: learn by end of month`}/>
+          {/* Trading */}
+          <div style={cardStyle(0.05)}>
+            <SectionHead icon="📈" title="Trading" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · Goal: learn by end of month`}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               <div style={{background:totalPL>=0?"rgba(140,210,100,0.18)":"rgba(220,120,120,0.15)",borderRadius:12,padding:"12px 14px",border:`1px solid ${totalPL>=0?"rgba(100,180,70,0.28)":"rgba(200,80,80,0.25)"}`}}>
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#7a5a9a",letterSpacing:1.2,textTransform:"uppercase",margin:0}}>Live P&L</p>
@@ -741,7 +817,7 @@ export default function Dashboard() {
               })
             }
             <div style={{background:"rgba(190,210,235,0.2)",borderRadius:12,padding:"12px 14px",marginTop:6,border:"1px solid rgba(130,170,210,0.22)"}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#3a4a70",margin:0,lineHeight:1.6}}>💡 <strong>Rule:</strong> Don't go live until you're consistently profitable on paper for 30+ days. Losses on paper are lessons. Losses live are tuition.</p>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#3a4a70",margin:0,lineHeight:1.6}}>💡 <strong>Rule:</strong> Don't go live until you're consistently profitable on paper for 30+ days.</p>
             </div>
           </div>
         </>)}
