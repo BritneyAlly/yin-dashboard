@@ -1,3 +1,4 @@
+import React from "react";
 import React, { useState, useEffect, useRef } from "react";
 import { supabase } from './supabase.js'
 
@@ -5,7 +6,7 @@ const SK = "yin-final-v1";
 const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
 const save = (s) => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
 const saveCloud = async (s) => { try { await supabase.from('dashboard_data').upsert({ id: 'yin', data: s, updated_at: new Date() }); } catch {} };
-const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || {}; } catch { return {}; } };
+const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || null; } catch { return null; } };
 
 const localDateStr = (d = new Date()) => {
   const y = d.getFullYear();
@@ -135,8 +136,37 @@ export default function Dashboard() {
   const month_k = getMonth();
   const isMandatoryThreadsDay = THREADS_DAYS.includes(todayDOW);
 
-  useEffect(() => { save(data); saveCloud(data); }, [data]);
-  useEffect(() => { loadCloud().then(cloud => { if (cloud && Object.keys(cloud).length > 0) setData(cloud); }); }, []);
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ RACE CONDITION FIX
+  // Problem: the save useEffect was firing immediately on mount with empty {}
+  // state, overwriting cloud data before the loadCloud promise resolved.
+  //
+  // Fix: cloudLoaded gate — saving is completely blocked until the cloud
+  // fetch (or its failure) completes. Data only flows one direction on load:
+  // Supabase → state. After that, every state change syncs back safely.
+  // ─────────────────────────────────────────────────────────────────────────
+  const [cloudLoaded, setCloudLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!cloudLoaded) return; // 🔒 blocked until cloud load finishes
+    save(data);
+    saveCloud(data);
+  }, [data, cloudLoaded]);
+
+  useEffect(() => {
+    loadCloud().then(cloud => {
+      if (cloud && Object.keys(cloud).length > 0) {
+        setData(cloud);           // cloud data wins — this is the source of truth
+      } else {
+        // Cloud is empty or failed — try localStorage as fallback
+        const local = load();
+        if (Object.keys(local).length > 0) setData(local);
+      }
+      setCloudLoaded(true);       // 🔓 gate opens — now safe to write back
+    });
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const t = setInterval(() => setAffirmIdx(i => (i + 1) % AFFIRMATIONS.length), 7000);
     return () => clearInterval(t);
@@ -211,9 +241,8 @@ export default function Dashboard() {
   const dailyChecks = ["vitaminIron","vitaminD","skincareAM","skincarePM","todayTreatment","jobApps","tradingStudy","tradeSession","threadsPost","socialPost","journaled","sleep7","scalpMassage","lowManip"];
   const doneCount = dailyChecks.filter(k=>td(k)).length + (teaLog.length>0?1:0) + (fiberTotal>=25?1:0) + (mood>0?1:0) + (win.length>0?1:0);
   const totalChecks = dailyChecks.length + 4;
-  // Calendar
+
   const calEvents = data.calEvents || {};
-  const calMonthKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   const calDayKey = (d) => d.toISOString().split("T")[0];
   const addEvent = () => {
     if (!newEvent.trim() || !selectedDay) return;
@@ -226,7 +255,6 @@ export default function Dashboard() {
   const getFirstDayOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
   const eventTypeColors = { appointment:"#c090d0", bill:"#e8a070", reminder:"#70b8d0", personal:"#90c870" };
 
-  // Todo list with carry-over
   const allTodos = data.todos || [];
   const addTodo = () => {
     if (!newTodo.trim()) return;
@@ -387,12 +415,18 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* Cloud loading indicator */}
+      {!cloudLoaded && (
+        <div style={{textAlign:"center",padding:"4px 0 8px"}}>
+          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#b090c0",fontStyle:"italic"}}>✦ syncing…</span>
+        </div>
+      )}
+
       <div style={{maxWidth:680,margin:"0 auto",padding:"8px 14px"}}>
 
         {/* ══ TODAY ══ */}
         {tab==="today" && (<>
 
-          {/* History Day Viewer */}
           {historyDay && historyDay !== today_k && (() => {
             const hd = (data.daily||{})[historyDay] || {};
             const hChecks = dailyChecks.filter(k => hd[k]);
@@ -401,7 +435,6 @@ export default function Dashboard() {
             const hFiber = (hd.fiber||[]).reduce((s,e)=>s+e.g,0);
             const hWin = hd.win || "";
             const hMood = hd.mood || 0;
-            const moodEmojis = ["","😔","😐","🙂","😊","🌟"];
             return (
               <div style={{...cardStyle(0), border:"2px solid rgba(160,120,200,0.4)", background:"rgba(245,238,255,0.9)"}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -441,7 +474,6 @@ export default function Dashboard() {
             );
           })()}
 
-          {/* Day navigator for history */}
           {!historyDay && (
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:10}}>
               <button onClick={()=>{const d=new Date(today_k+"T12:00:00");d.setDate(d.getDate()-1);setHistoryDay(localDateStr(d));}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9060c0",background:"rgba(200,180,230,0.2)",border:"1px solid rgba(180,150,210,0.3)",borderRadius:20,padding:"5px 14px",cursor:"pointer"}}>‹ View previous day</button>
@@ -456,8 +488,6 @@ export default function Dashboard() {
 
           <div style={cardStyle(0)}>
             <SectionHead icon="⚡" title="Command Center" sub="Your to-dos + what's on today"/>
-
-            {/* Today's calendar events */}
             {todayCalEvents.length > 0 && (
               <div style={{marginBottom:14}}>
                 <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9060c0",textTransform:"uppercase",letterSpacing:1,margin:"0 0 6px",fontWeight:600}}>📅 On the calendar today</p>
@@ -470,19 +500,14 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-
-            {/* Add todo */}
             <div style={{display:"flex",gap:6,marginBottom:10}}>
-              <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()}
-                placeholder="Add a to-do…" style={{...inp,flex:1,fontSize:13.5}}/>
+              <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()} placeholder="Add a to-do…" style={{...inp,flex:1,fontSize:13.5}}/>
               <div style={{display:"flex",gap:4}}>
                 <button onClick={()=>setTodoType("business")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="business"?"#9060c0":"rgba(235,225,248,0.7)",color:todoType==="business"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Work</button>
                 <button onClick={()=>setTodoType("personal")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="personal"?"#e8a090":"rgba(235,225,248,0.7)",color:todoType==="personal"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Personal</button>
                 <button onClick={addTodo} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600}}>+</button>
               </div>
             </div>
-
-            {/* Todo list */}
             {activeTodos.length === 0
               ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"rgba(140,110,160,0.45)",fontStyle:"italic"}}>Nothing on your list — add something above</p>
               : (<>
@@ -681,12 +706,10 @@ export default function Dashboard() {
         {/* ══ WEEKLY ══ */}
         {tab==="weekly" && (<>
           <p style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9070b0",marginBottom:14,fontStyle:"italic"}}>Week of {week_k}</p>
-
           <div style={cardStyle(0)}>
             <SectionHead icon="🎯" title="Movement & Learning"/>
             {Object.entries(WEEKLY).map(([k,v])=><CounterRow key={k} k={k} {...v}/>)}
           </div>
-
           <div style={cardStyle(0.06)}>
             <SectionHead icon="🧵" title="Content Schedule" sub="Threads: Tue · Thu · Sat · Social: 1x/week"/>
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
@@ -701,7 +724,6 @@ export default function Dashboard() {
               })}
             </div>
           </div>
-
           <div style={cardStyle(0.09)}>
             <SectionHead icon="✨" title="Skincare Week"/>
             <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
@@ -716,7 +738,6 @@ export default function Dashboard() {
               })}
             </div>
           </div>
-
           <div style={cardStyle(0.12)}>
             <SectionHead icon="🌙" title="Sunday Reset" sub={isSunday?"Tonight is your reset — take 10 minutes":"Your weekly close ritual — available every Sunday"}/>
             {[
@@ -731,7 +752,6 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-
           <div style={cardStyle(0.15)}>
             <SectionHead icon="💵" title="Weekly Money Review" sub="10 minutes every Sunday — women who build wealth do this religiously"/>
             {[
@@ -750,7 +770,6 @@ export default function Dashboard() {
 
         {/* ══ FINANCE ══ */}
         {tab==="finance" && (<>
-          {/* Income */}
           <div style={cardStyle(0)}>
             <SectionHead icon="💵" title="Income" sub={today.toLocaleString("default",{month:"long",year:"numeric"})}/>
             <div style={{background:"linear-gradient(135deg,rgba(180,230,150,0.25),rgba(140,210,110,0.18))",borderRadius:14,padding:"14px",marginBottom:14,border:"1px solid rgba(110,180,80,0.28)",textAlign:"center"}}>
@@ -775,8 +794,6 @@ export default function Dashboard() {
               ))
             }
           </div>
-
-          {/* Trading */}
           <div style={cardStyle(0.05)}>
             <SectionHead icon="📈" title="Trading" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · Goal: learn by end of month`}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
@@ -857,27 +874,18 @@ export default function Dashboard() {
         {/* ══ CALENDAR ══ */}
         {tab==="calendar" && (<>
           <div style={cardStyle(0)}>
-            {/* Month nav */}
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
               <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-              <h3 style={{fontSize:18,fontWeight:500,color:"#1e0e2e",margin:0}}>
-                {calMonth.toLocaleString("default",{month:"long",year:"numeric"})}
-              </h3>
+              <h3 style={{fontSize:18,fontWeight:500,color:"#1e0e2e",margin:0}}>{calMonth.toLocaleString("default",{month:"long",year:"numeric"})}</h3>
               <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
             </div>
-
-            {/* Day headers */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
               {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>(
                 <div key={d} style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#a080b0",padding:"4px 0"}}>{d}</div>
               ))}
             </div>
-
-            {/* Calendar grid */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-              {Array(getFirstDayOfMonth(calMonth)).fill(null).map((_,i)=>(
-                <div key={`empty-${i}`}/>
-              ))}
+              {Array(getFirstDayOfMonth(calMonth)).fill(null).map((_,i)=><div key={`empty-${i}`}/>)}
               {Array(getDaysInMonth(calMonth)).fill(null).map((_,i)=>{
                 const dayNum = i+1;
                 const dayDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), dayNum);
@@ -885,28 +893,16 @@ export default function Dashboard() {
                 const isToday = dayKey === today_k;
                 const isSelected = dayKey === selectedDay;
                 const events = calEvents[dayKey] || [];
-                const hasEvents = events.length > 0;
                 return (
-                  <div key={dayNum} onClick={()=>setSelectedDay(isSelected ? null : dayKey)} style={{
-                    textAlign:"center", padding:"6px 2px", borderRadius:10, cursor:"pointer",
-                    background: isSelected ? "linear-gradient(135deg,#d0a0e0,#a070c0)" : isToday ? "rgba(180,140,220,0.2)" : "rgba(240,232,250,0.3)",
-                    border: isToday ? "2px solid rgba(160,120,200,0.5)" : "1px solid transparent",
-                    transition:"all 0.15s",
-                  }}>
+                  <div key={dayNum} onClick={()=>setSelectedDay(isSelected ? null : dayKey)} style={{textAlign:"center",padding:"6px 2px",borderRadius:10,cursor:"pointer",background:isSelected?"linear-gradient(135deg,#d0a0e0,#a070c0)":isToday?"rgba(180,140,220,0.2)":"rgba(240,232,250,0.3)",border:isToday?"2px solid rgba(160,120,200,0.5)":"1px solid transparent",transition:"all 0.15s"}}>
                     <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:isToday?700:400,color:isSelected?"#fff":isToday?"#6030a0":"#3a2a4a",margin:0}}>{dayNum}</p>
-                    {hasEvents && (
-                      <div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2,flexWrap:"wrap"}}>
-                        {events.slice(0,3).map(e=>(
-                          <div key={e.id} style={{width:5,height:5,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.8)":eventTypeColors[e.type]||"#c090d0"}}/>
-                        ))}
-                      </div>
-                    )}
+                    {events.length>0&&<div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2,flexWrap:"wrap"}}>
+                      {events.slice(0,3).map(e=><div key={e.id} style={{width:5,height:5,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.8)":eventTypeColors[e.type]||"#c090d0"}}/>)}
+                    </div>}
                   </div>
                 );
               })}
             </div>
-
-            {/* Legend */}
             <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12,paddingTop:10,borderTop:"1px solid rgba(200,180,220,0.2)"}}>
               {Object.entries(eventTypeColors).map(([type,color])=>(
                 <div key={type} style={{display:"flex",alignItems:"center",gap:4}}>
@@ -916,30 +912,16 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-
-          {/* Selected day events */}
           {selectedDay && (
             <div style={cardStyle(0.04)}>
               <SectionHead icon="📅" title={new Date(selectedDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})} sub=""/>
-
-              {/* Add event */}
-              <input value={newEvent} onChange={e=>setNewEvent(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEvent()}
-                placeholder="Add appointment, bill, or reminder…"
-                style={{...inp,marginBottom:8}}/>
+              <input value={newEvent} onChange={e=>setNewEvent(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEvent()} placeholder="Add appointment, bill, or reminder…" style={{...inp,marginBottom:8}}/>
               <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                 {Object.entries(eventTypeColors).map(([type,color])=>(
-                  <button key={type} onClick={()=>setEventType(type)} style={{
-                    padding:"5px 12px",borderRadius:20,border:"none",cursor:"pointer",
-                    background:eventType===type?color:"rgba(235,225,248,0.7)",
-                    color:eventType===type?"#fff":"#8060a0",
-                    fontFamily:"'DM Sans',sans-serif",fontSize:11.5,fontWeight:500,textTransform:"capitalize",
-                    transition:"all 0.2s",
-                  }}>{type}</button>
+                  <button key={type} onClick={()=>setEventType(type)} style={{padding:"5px 12px",borderRadius:20,border:"none",cursor:"pointer",background:eventType===type?color:"rgba(235,225,248,0.7)",color:eventType===type?"#fff":"#8060a0",fontFamily:"'DM Sans',sans-serif",fontSize:11.5,fontWeight:500,textTransform:"capitalize",transition:"all 0.2s"}}>{type}</button>
                 ))}
               </div>
               <button onClick={addEvent} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add</button>
-
-              {/* Event list */}
               {(calEvents[selectedDay]||[]).length===0
                 ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center"}}>Nothing scheduled — tap above to add</p>
                 : (calEvents[selectedDay]||[]).map(e=>(
@@ -953,16 +935,12 @@ export default function Dashboard() {
               }
             </div>
           )}
-
-          {/* Upcoming events */}
           {(() => {
             const upcoming = [];
             for (let i=0; i<30; i++) {
               const d = new Date(); d.setDate(d.getDate()+i);
               const k = calDayKey(d);
-              if (calEvents[k]?.length) {
-                calEvents[k].forEach(e => upcoming.push({...e, date:k, dateLabel: d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}));
-              }
+              if (calEvents[k]?.length) calEvents[k].forEach(e => upcoming.push({...e, date:k, dateLabel: d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}));
             }
             if (!upcoming.length) return null;
             return (
@@ -1000,7 +978,6 @@ export default function Dashboard() {
             <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"rgba(150,120,180,0.5)",textAlign:"right",marginTop:5}}>Saved automatically ✦</p>
           </div>
 
-          {/* MONTHLY PROGRESS */}
           <div style={cardStyle(0.04)}>
             <SectionHead icon="📸" title="Monthly Progress" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} — document your results, not just your effort`}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
@@ -1010,162 +987,15 @@ export default function Dashboard() {
               ].map(({key,icon,label,color,placeholder})=>(
                 <div key={key} style={{background:`${color}14`,borderRadius:14,padding:"12px 14px",border:`1px solid ${color}40`}}>
                   <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#3a2a4a",margin:"0 0 6px",display:"flex",alignItems:"center",gap:5}}><span>{icon}</span>{label}</p>
-                  <textarea
-                    value={(data.monthProgress||{})[month_k]?.[key]||""}
-                    onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],[key]:e.target.value}}}))}
-                    placeholder={placeholder}
-                    style={{...inp,minHeight:80,resize:"vertical",lineHeight:1.6,fontSize:12,padding:"7px 10px",background:"rgba(255,252,255,0.7)"}}
-                  />
+                  <textarea value={(data.monthProgress||{})[month_k]?.[key]||""} onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],[key]:e.target.value}}}))} placeholder={placeholder} style={{...inp,minHeight:80,resize:"vertical",lineHeight:1.6,fontSize:12,padding:"7px 10px",background:"rgba(255,252,255,0.7)"}}/>
                 </div>
               ))}
             </div>
             <div style={{background:"rgba(200,180,230,0.12)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(180,150,220,0.25)"}}>
               <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#3a2a4a",margin:"0 0 6px"}}>💰 Overall this month</p>
-              <textarea
-                value={(data.monthProgress||{})[month_k]?.overall||""}
-                onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],overall:e.target.value}}}))}
-                placeholder="Energy levels, body changes, mood patterns, financial movement, wins you're most proud of…"
-                style={{...inp,minHeight:70,resize:"vertical",lineHeight:1.6,fontSize:12,background:"rgba(255,252,255,0.7)"}}
-              />
+              <textarea value={(data.monthProgress||{})[month_k]?.overall||""} onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],overall:e.target.value}}}))} placeholder="Energy levels, body changes, mood patterns, financial movement, wins you're most proud of…" style={{...inp,minHeight:70,resize:"vertical",lineHeight:1.6,fontSize:12,background:"rgba(255,252,255,0.7)"}}/>
             </div>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"rgba(150,120,180,0.5)",marginTop:8,fontStyle:"italic",textAlign:"center"}}>
-              📅 Fill this in on the 1st of each month — your results over time are the proof of your consistency
-            </p>
           </div>
-
-          {/* AUTOMATIC MONTHLY REPORT */}
-          {(() => {
-            const [reportYear, reportMonthNum] = month_k.split("-").map(Number);
-            const daysInMonth = new Date(reportYear, reportMonthNum, 0).getDate();
-            const allDays = Array.from({length: daysInMonth}, (_, i) => {
-              const d = `${reportYear}-${String(reportMonthNum).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
-              return { key: d, habits: (data.daily||{})[d] || {} };
-            });
-            const daysWithData = allDays.filter(d => Object.keys(d.habits).length > 0);
-            const totalDays = daysWithData.length;
-
-            // Habit completion
-            const habitScores = dailyChecks.map(hk => ({
-              key: hk,
-              count: daysWithData.filter(d => d.habits[hk]).length
-            }));
-            const avgCompletion = totalDays > 0 ? Math.round(daysWithData.reduce((s,d) => {
-              const done = dailyChecks.filter(hk => d.habits[hk]).length;
-              return s + (done / dailyChecks.length) * 100;
-            }, 0) / totalDays) : 0;
-
-            // Mood
-            const moodDays = daysWithData.filter(d => d.habits.mood > 0);
-            const avgMood = moodDays.length > 0 ? (moodDays.reduce((s,d) => s + (d.habits.mood||0), 0) / moodDays.length).toFixed(1) : null;
-            const moodLabels = ["","Rough","Low","Okay","Good","Thriving"];
-
-            // Fiber
-            const fiberDaysHit = daysWithData.filter(d => (d.habits.fiber||[]).reduce((s,e)=>s+e.g,0) >= 25).length;
-
-            // Weekly data
-            const weeklyData = data.weekly || {};
-            const monthWorkouts = Object.entries(weeklyData).filter(([wk]) => wk.startsWith(month_k.slice(0,7).replace("-",""))||true).reduce((s,[,v]) => s + (v.workout||0), 0);
-            const monthWalks = Object.values(weeklyData).reduce((s,v) => s + (v.walk||0), 0);
-            const monthReads = Object.values(weeklyData).reduce((s,v) => s + (v.read||0), 0);
-
-            // Wins
-            const wins = daysWithData.filter(d => d.habits.win && d.habits.win.trim().length > 0);
-
-            // Streak best
-            let bestStreak = 0, currentStreak = 0;
-            allDays.forEach(d => {
-              const done = dailyChecks.filter(hk => d.habits[hk]).length;
-              if ((done / dailyChecks.length) >= 0.6) { currentStreak++; bestStreak = Math.max(bestStreak, currentStreak); }
-              else currentStreak = 0;
-            });
-
-            const statCard = (icon, label, value, sub, color) => (
-              <div style={{background:`${color}12`,borderRadius:14,padding:"12px 14px",border:`1px solid ${color}30`,textAlign:"center"}}>
-                <p style={{fontSize:16,margin:"0 0 2px"}}>{icon}</p>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:22,fontWeight:600,color,margin:0,lineHeight:1}}>{value}</p>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#9070b0",margin:"3px 0 1px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{label}</p>
-                {sub&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a090b8",margin:0}}>{sub}</p>}
-              </div>
-            );
-
-            return (
-              <div style={cardStyle(0.08)}>
-                <div style={{marginBottom:14}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                    <span style={{fontSize:20}}>📊</span>
-                    <span style={{fontSize:17,fontWeight:500,color:"#1e0e2e"}}>Monthly Report</span>
-                  </div>
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#a080c0",marginTop:2,marginLeft:28,fontStyle:"italic"}}>{today.toLocaleString("default",{month:"long",year:"numeric"})} · {totalDays} active days tracked</p>
-                </div>
-
-                {totalDays === 0 ? (
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(150,120,180,0.5)",fontStyle:"italic",textAlign:"center",padding:"16px 0"}}>No data yet this month — start checking off habits and your report will build automatically 🌸</p>
-                ) : (<>
-                  {/* Hero stat */}
-                  <div style={{background:"linear-gradient(135deg,rgba(180,140,220,0.2),rgba(160,120,200,0.15))",borderRadius:16,padding:"16px",marginBottom:12,textAlign:"center",border:"1px solid rgba(160,120,200,0.25)"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:48,fontWeight:700,color:"#7050a0",margin:0,lineHeight:1}}>{avgCompletion}%</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9070b0",margin:"4px 0 0",textTransform:"uppercase",letterSpacing:1.5}}>Average Daily Completion</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#b090c0",margin:"4px 0 0",fontStyle:"italic"}}>
-                      {avgCompletion >= 80 ? "Outstanding month 🔥" : avgCompletion >= 60 ? "Solid effort — keep building ✨" : avgCompletion >= 40 ? "Good start — push harder next month 💪" : "Every day is a new chance 🌱"}
-                    </p>
-                  </div>
-
-                  {/* Stats grid */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
-                    {statCard("🔥","Best Streak",`${bestStreak}d`,"consecutive days","#e8a090")}
-                    {statCard("🌡️","Avg Mood",avgMood?`${avgMood}/5`:"—",avgMood?moodLabels[Math.round(parseFloat(avgMood))]:"no data","#90c8a0")}
-                    {statCard("🌱","Fiber Days",`${fiberDaysHit}d`,`hit 25g+ goal`,"#80c860")}
-                    {statCard("💰","Income",`$${totalIncome.toFixed(0)}`,`${monthIncome.length} entries`,"#90c840")}
-                    {statCard("📈","Paper P&L",`${totalPaper>=0?"+":""}$${Math.abs(totalPaper).toFixed(0)}`,`${monthTrades.filter(t=>t.type==="paper").length} trades`,"#7878d0")}
-                    {statCard("🏆","Wins",`${wins.length}d`,`days with a win logged`,"#f0b040")}
-                  </div>
-
-                  {/* Habit breakdown */}
-                  <div style={{background:"rgba(200,180,230,0.1)",borderRadius:14,padding:"14px",marginBottom:12,border:"1px solid rgba(180,150,220,0.2)"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#7050a0",margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>Habit Breakdown</p>
-                    {[
-                      {k:"vitaminIron",label:"Iron supplement"},
-                      {k:"vitaminD",label:"Vitamin D"},
-                      {k:"sleep7",label:"7–9hrs sleep"},
-                      {k:"skincareAM",label:"AM skincare"},
-                      {k:"todayTreatment",label:"PM treatment"},
-                      {k:"scalpMassage",label:"Scalp massage"},
-                      {k:"jobApps",label:"Job application"},
-                      {k:"tradingStudy",label:"Trading study"},
-                      {k:"threadsPost",label:"Threads post"},
-                      {k:"journaled",label:"Journaled"},
-                    ].map(({k,label}) => {
-                      const count = habitScores.find(h=>h.key===k)?.count || 0;
-                      const pctH = totalDays > 0 ? Math.round((count/totalDays)*100) : 0;
-                      const color = pctH >= 80 ? "#60b040" : pctH >= 50 ? "#c0a030" : "#c05050";
-                      return (
-                        <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a4a6a",flex:1,minWidth:120}}>{label}</span>
-                          <div style={{flex:2,height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden"}}>
-                            <div style={{height:"100%",width:`${pctH}%`,background:color,borderRadius:3,transition:"width 0.6s ease"}}/>
-                          </div>
-                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color,minWidth:36,textAlign:"right"}}>{pctH}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Wins log */}
-                  {wins.length > 0 && (
-                    <div style={{background:"rgba(240,200,100,0.08)",borderRadius:14,padding:"14px",border:"1px solid rgba(220,180,60,0.2)"}}>
-                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#9a7020",margin:"0 0 10px",textTransform:"uppercase",letterSpacing:1}}>🏆 Wins This Month</p>
-                      {wins.slice(-10).map(d=>(
-                        <div key={d.key} style={{display:"flex",gap:8,marginBottom:6,alignItems:"flex-start"}}>
-                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b09040",minWidth:50,flexShrink:0,marginTop:2}}>{new Date(d.key+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
-                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#3a2a1a",margin:0,lineHeight:1.4}}>{d.habits.win}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>)}
-              </div>
-            );
-          })()}
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
             {[
