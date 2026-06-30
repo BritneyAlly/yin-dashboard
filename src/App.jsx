@@ -455,10 +455,10 @@ export default function Dashboard() {
     border:`1px solid ${C.border}`, animation:`fadeUp 0.35s ${delay}s ease forwards`, opacity:0,
   });
   const pillBtn = (active) => ({
-    padding:"7px 16px", borderRadius:4, border:`1px solid ${active ? "#FFFFFF" : "rgba(255,255,255,0.4)"}`,
+    padding:"7px 16px", borderRadius:4, border:`1px solid ${active ? "#FFFFFF" : "rgba(60,50,55,0.25)"}`,
     cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:500,
     letterSpacing:0.3, background:active ? "#FFFFFF" : "transparent",
-    color:active ? C.rose : "#FFFFFF", transition:"all 0.15s",
+    color:active ? C.rose : C.textMid, transition:"all 0.15s",
   });
 
   const Row = ({ label, k, note, color }) => {
@@ -633,13 +633,13 @@ export default function Dashboard() {
       </div>
 
       {/* NAV */}
-      <div style={{display:"flex", justifyContent:"center", gap:4, padding:"14px 14px 6px", flexWrap:"wrap", borderBottom:`1px solid ${C.border}`, background:"linear-gradient(to right, #7BA68A, #8A7BA6)"}}>
+      <div style={{display:"flex", justifyContent:"center", gap:4, padding:"14px 14px 6px", flexWrap:"wrap", borderBottom:`1px solid ${C.border}`, background:"linear-gradient(to right, #C9DECF, #DCD2E4)"}}>
         {[["today","Today"],["bigpicture","Big Picture"],["weekly","Weekly"],["calendar","Calendar"],["finance","Finance"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
 
-      <div style={{maxWidth:680, margin:"0 auto", padding:"12px 14px", background: tab==="today" ? "linear-gradient(to bottom, #F0DDE2, #F8F2F4)" : "transparent", minHeight:"calc(100vh - 200px)"}}>
+      <div style={{maxWidth:680, margin:"0 auto", padding:"12px 14px", background: tab==="today" ? "linear-gradient(to bottom, #F8F2F4, #F0DDE2)" : "transparent", minHeight:"calc(100vh - 200px)"}}>
 
         {/* ══ BIG PICTURE ══ */}
         {tab==="bigpicture" && (<>
