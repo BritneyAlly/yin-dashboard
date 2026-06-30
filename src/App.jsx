@@ -5,7 +5,7 @@ const SK = "yin-final-v1";
 const load = () => { try { const r = localStorage.getItem(SK); return r ? JSON.parse(r) : {}; } catch { return {}; } };
 const save = (s) => { try { localStorage.setItem(SK, JSON.stringify(s)); } catch {} };
 const saveCloud = async (s) => { try { await supabase.from('dashboard_data').upsert({ id: 'yin', data: s, updated_at: new Date() }); } catch {} };
-const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || null; } catch { return null; } };
+const loadCloud = async () => { try { const { data } = await supabase.from('dashboard_data').select('data').eq('id','yin').single(); return data?.data || {}; } catch { return {}; } };
 
 const localDateStr = (d = new Date()) => {
   const y = d.getFullYear();
@@ -30,18 +30,17 @@ const AFFIRMATIONS = [
   "I am a woman who deserves love, success, and respect — and I show up every day as proof of that.",
   "My body is healing, strengthening, and thriving. I give it what it needs and it rewards me abundantly.",
   "Financial freedom is not a dream — it is my destination, and every action I take today moves me closer to it.",
-  "I am a sought-after hair health consultant who commands premium rates and changes lives.",
   "If not me, then who?",
 ];
 
 const SKINCARE_SCHEDULE = {
-  Sunday:    { treatment: "Mandelic Acid", type: "acid", color: "#e8a0b0" },
-  Monday:    { treatment: "Azelaic Acid", type: "acid", color: "#b8a0e0" },
-  Tuesday:   { treatment: "Hydration Day", type: "hydration", color: "#90c8e0" },
-  Wednesday: { treatment: "Azelaic Acid", type: "acid", color: "#b8a0e0" },
-  Thursday:  { treatment: "Mandelic Acid", type: "acid", color: "#e8a0b0" },
-  Friday:    { treatment: "Azelaic Acid", type: "acid", color: "#b8a0e0" },
-  Saturday:  { treatment: "Hydration Day", type: "hydration", color: "#90c8e0" },
+  Sunday:    { treatment: "Mandelic Acid", type: "acid", color: "#C9A8B2" },
+  Monday:    { treatment: "Azelaic Acid", type: "acid", color: "#B8A9C4" },
+  Tuesday:   { treatment: "Hydration Day", type: "hydration", color: "#A8BFC9" },
+  Wednesday: { treatment: "Azelaic Acid", type: "acid", color: "#B8A9C4" },
+  Thursday:  { treatment: "Mandelic Acid", type: "acid", color: "#C9A8B2" },
+  Friday:    { treatment: "Azelaic Acid", type: "acid", color: "#B8A9C4" },
+  Saturday:  { treatment: "Hydration Day", type: "hydration", color: "#A8BFC9" },
 };
 
 const TEAS = ["Green tea","Nettle tea","Spearmint tea","Ginger tea","Chamomile tea","Rooibos","Peppermint tea","Hibiscus tea","Other"];
@@ -64,12 +63,43 @@ const FIBER_FOODS = [
 ];
 
 const WEEKLY = {
-  workout: { label: "Workouts", target: 4, icon: "🏋🏽", color: "#e8a090" },
-  walk:    { label: "Walks", target: 3, icon: "🚶🏽‍♀️", color: "#80c8a0" },
-  read:    { label: "Reading Sessions", target: 4, icon: "📖", color: "#b0a0e0" },
+  walk: { label: "Walks", target: 3, icon: "🚶🏽‍♀️", color: "#7BA68A" },
+  read: { label: "Reading Sessions", target: 4, icon: "📖", color: "#8A7BA6" },
+  tradingStudy: { label: "Trading Study", target: 3, icon: "📈", color: "#7BA6A6" },
 };
 
-const THREADS_DAYS = ["Tuesday","Thursday","Saturday"];
+const WORKOUT_SCHEDULE = [
+  { day: "Monday",   type: "Strength", short: "Mon" },
+  { day: "Tuesday",  type: "Pilates",  short: "Tue" },
+  { day: "Thursday", type: "Strength", short: "Thu" },
+  { day: "Saturday", type: "Pilates",  short: "Sat" },
+];
+
+const BP_COMPANIES = [
+  { name:"Stryker",        role:"Clinical Specialist / Mako",              priority:1 },
+  { name:"J&J MedTech",   role:"Regional Clinical Sales Specialist",       priority:2 },
+  { name:"Zimmer Biomet",  role:"Clinical Specialist, Joints",              priority:3 },
+  { name:"Smith+Nephew",   role:"Assoc. Sales Rep, Sports Med",             priority:4 },
+  { name:"Arthrex",        role:"Clinical Sales Rep",                       priority:5 },
+  { name:"KARL STORZ",     role:"Sales Executive, Surgical",                priority:6 },
+];
+
+const BP_PHASES = [
+  { phase:"Wk 1–2",  task:"LinkedIn audit + connect with 20+ reps and DMs at Stryker, J&J, Zimmer in Atlanta" },
+  { phase:"Wk 2–3",  task:"Position resume: athletic training as clinical adjacent, anatomy expertise, high-stakes environments" },
+  { phase:"Wk 3–6",  task:"Apply Stryker first, then J&J, Zimmer, Smith+Nephew. 2 informational calls per week" },
+  { phase:"Mo 2–3",  task:"Interview prep + OR shadow. Study hip/knee surgical approach. Own your story cold" },
+];
+
+const STAGE_COLORS = {
+  "Lead":"#B8A9C4","Proposal Sent":"#C9A870","In Build":"#7A9AB8",
+  "Delivered":"#8A7BA6","Paid":"#7BA68A","Ongoing":"#6A9A8A",
+};
+const STAGES = ["Lead","Proposal Sent","In Build","Delivered","Paid","Ongoing"];
+
+// Daily score checks — recalculated around new set
+const DAILY_SCORE_CHECKS = ["vitaminIron","vitaminD","skincareAM","skincarePM","todayTreatment","sleep7","journaled"];
+// Additional scored items (computed separately): mood set, tea logged, fiber 25g+, win of day
 
 function getNextRice(last) {
   if (!last) return null;
@@ -80,30 +110,51 @@ function daysUntil(dateStr) {
   if (!dateStr) return null;
   return Math.round((new Date(dateStr) - new Date(todayKey())) / 86400000);
 }
-
-function calcStreak(dailyData, checkKeys) {
+function calcStreak(dailyData) {
   let streak = 0;
   const d = new Date();
   for (let i = 0; i < 365; i++) {
-    const k = d.toISOString().split("T")[0];
+    const k = localDateStr(d);
     const dh = (dailyData || {})[k] || {};
-    const done = checkKeys.filter(h => dh[h]).length;
-    if ((done / checkKeys.length) >= 0.6) { streak++; d.setDate(d.getDate() - 1); }
+    const checksDone = DAILY_SCORE_CHECKS.filter(h => dh[h]).length;
+    const teaDone = (dh.teas||[]).length > 0 ? 1 : 0;
+    const fiberDone = (dh.fiber||[]).reduce((s,e)=>s+e.g,0) >= 25 ? 1 : 0;
+    const moodDone = (dh.mood||0) > 0 ? 1 : 0;
+    const winDone = (dh.win||"").length > 5 ? 1 : 0;
+    const total = checksDone + teaDone + fiberDone + moodDone + winDone;
+    const totalPossible = DAILY_SCORE_CHECKS.length + 4;
+    if ((total / totalPossible) >= 0.6) { streak++; d.setDate(d.getDate() - 1); }
     else break;
   }
   return streak;
 }
-
-function streakEmoji(s) {
-  if (s >= 30) return "🔥";
-  if (s >= 14) return "⚡";
-  if (s >= 7)  return "✨";
-  if (s >= 3)  return "🌱";
-  return "💫";
+function fmtDate(s) {
+  return new Date(s+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
 }
+
+// ── Design tokens ──
+const C = {
+  bg: "#F8F5F3",
+  ivory: "#F2EEE9",
+  border: "#E8E4DF",
+  borderDark: "#DDD9D2",
+  rose: "#C9A8B2",
+  roseLight: "#EDE0E4",
+  roseMid: "#D9BEC5",
+  text: "#1C1A18",
+  textMid: "#5A5550",
+  textLight: "#9A948E",
+  textFaint: "#C4BFB9",
+  gold: "#B8956A",
+  goldLight: "#D4AF80",
+  green: "#7BA68A",
+  blue: "#7A9AB8",
+  purple: "#8A7BA6",
+};
 
 export default function Dashboard() {
   const [data, setData] = useState(load);
+  const [cloudLoaded, setCloudLoaded] = useState(false);
   const [tab, setTab] = useState("today");
   const [affirmIdx, setAffirmIdx] = useState(0);
   const [teaInput, setTeaInput] = useState("");
@@ -123,48 +174,32 @@ export default function Dashboard() {
   const [historyDay, setHistoryDay] = useState(null);
   const [calMonth, setCalMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null);
-  const [newEvent, setNewEvent] = useState("");
-  const [eventType, setEventType] = useState("appointment");
+  const [newEvent, setNewEvent] = useState({ text:"", type:"event", time:"", location:"", description:"" });
   const [newTodo, setNewTodo] = useState("");
   const [todoType, setTodoType] = useState("personal");
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientStage, setNewClientStage] = useState("Lead");
+  const [newClientNote, setNewClientNote] = useState("");
+  const [newDecision, setNewDecision] = useState("");
   const teaRef = useRef();
   const fiberRef = useRef();
 
   const today_k = todayKey();
   const week_k = getWeekMon();
   const month_k = getMonth();
-  const isMandatoryThreadsDay = THREADS_DAYS.includes(todayDOW);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ✅ RACE CONDITION FIX
-  // Problem: the save useEffect was firing immediately on mount with empty {}
-  // state, overwriting cloud data before the loadCloud promise resolved.
-  //
-  // Fix: cloudLoaded gate — saving is completely blocked until the cloud
-  // fetch (or its failure) completes. Data only flows one direction on load:
-  // Supabase → state. After that, every state change syncs back safely.
-  // ─────────────────────────────────────────────────────────────────────────
-  const [cloudLoaded, setCloudLoaded] = useState(false);
-
+  // ── Supabase sync with cloudLoaded gate ──
   useEffect(() => {
-    if (!cloudLoaded) return; // 🔒 blocked until cloud load finishes
+    loadCloud().then(cloud => {
+      if (cloud && Object.keys(cloud).length > 0) setData(cloud);
+      setCloudLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!cloudLoaded) return;
     save(data);
     saveCloud(data);
   }, [data, cloudLoaded]);
-
-  useEffect(() => {
-    loadCloud().then(cloud => {
-      if (cloud && Object.keys(cloud).length > 0) {
-        setData(cloud);           // cloud data wins — this is the source of truth
-      } else {
-        // Cloud is empty or failed — try localStorage as fallback
-        const local = load();
-        if (Object.keys(local).length > 0) setData(local);
-      }
-      setCloudLoaded(true);       // 🔓 gate opens — now safe to write back
-    });
-  }, []);
-  // ─────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const t = setInterval(() => setAffirmIdx(i => (i + 1) % AFFIRMATIONS.length), 7000);
@@ -179,6 +214,7 @@ export default function Dashboard() {
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
+  // ── Daily helpers ──
   const td = (k) => ((data.daily || {})[today_k] || {})[k];
   const setTd = (k, v) => setData(p => ({ ...p, daily: { ...p.daily, [today_k]: { ...(p.daily||{})[today_k], [k]: v } } }));
   const toggle = (k) => setTd(k, !td(k));
@@ -186,15 +222,33 @@ export default function Dashboard() {
   const incWk = (k) => setData(p => ({ ...p, weekly: { ...p.weekly, [week_k]: { ...(p.weekly||{})[week_k], [k]: wk(k)+1 } } }));
   const decWk = (k) => setData(p => ({ ...p, weekly: { ...p.weekly, [week_k]: { ...(p.weekly||{})[week_k], [k]: Math.max(0,wk(k)-1) } } }));
 
+  // ── Wins feed with auto-win reversal ──
+  const addWin = (text, winId) => {
+    setData(p => {
+      const wins = p.wins || [];
+      const id = winId || `${Date.now()}-${text.slice(0,10)}`;
+      const existing = wins.findIndex(w => w.winId === id);
+      if (existing > -1) return p; // already exists, don't duplicate
+      const updated = [{ text, date: today_k, id: Date.now(), winId: id }, ...wins].slice(0, 40);
+      return { ...p, wins: updated };
+    });
+  };
+  const removeWinById = (winId) => {
+    setData(p => ({ ...p, wins: (p.wins||[]).filter(w => w.winId !== winId) }));
+  };
+
+  // ── Tea ──
   const teaLog = td("teas") || [];
   const addTea = (tea) => { setTd("teas", [...teaLog, { tea, time: new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) }]); setShowTeaMenu(false); setTeaInput(""); };
   const removeTea = (i) => { const t=[...teaLog]; t.splice(i,1); setTd("teas",t); };
 
+  // ── Fiber ──
   const fiberLog = td("fiber") || [];
   const fiberTotal = fiberLog.reduce((s,e) => s + e.g, 0);
   const addFiber = (name, g) => { setTd("fiber", [...fiberLog, { name, g: parseFloat(g), id: Date.now() }]); setShowFiberMenu(false); setFiberCustomG(""); setFiberCustomName(""); };
   const removeFiber = (id) => setTd("fiber", fiberLog.filter(e => e.id !== id));
 
+  // ── Hair ──
   const lastRice = data.lastRiceTreatment || "2026-05-17";
   const nextRice = getNextRice(lastRice);
   const riceCountdown = daysUntil(nextRice);
@@ -204,10 +258,13 @@ export default function Dashboard() {
   const priority = td("priority") || "";
   const win = td("win") || "";
 
+  // ── Finance ──
   const monthIncome = (data.income || {})[month_k] || [];
   const addIncome = () => {
     if (!incomeAmt) return;
-    setData(p => ({ ...p, income: { ...p.income, [month_k]: [...monthIncome, { amt: parseFloat(incomeAmt), note: incomeNote, date: today_k, id: Date.now() }] } }));
+    const entry = { amt: parseFloat(incomeAmt), note: incomeNote, date: today_k, id: Date.now() };
+    setData(p => ({ ...p, income: { ...p.income, [month_k]: [...monthIncome, entry] } }));
+    addWin(`Income logged: $${parseFloat(incomeAmt).toFixed(0)}${incomeNote ? " — " + incomeNote : ""}`, `income-${entry.id}`);
     setIncomeAmt(""); setIncomeNote("");
   };
   const removeIncome = (id) => setData(p => ({ ...p, income: { ...p.income, [month_k]: monthIncome.filter(e=>e.id!==id) } }));
@@ -223,36 +280,158 @@ export default function Dashboard() {
   const totalPL = monthTrades.filter(t=>t.type==="live").reduce((s,e)=>s+e.amt,0);
   const totalPaper = monthTrades.filter(t=>t.type==="paper").reduce((s,e)=>s+e.amt,0);
 
+  // ── Network ──
   const networkLog = data.network || [];
   const addNetwork = () => {
     if (!networkName) return;
-    setData(p => ({ ...p, network: [...(p.network||[]), { name: networkName, note: networkNote, followUp: networkFollowUp, date: today_k, id: Date.now(), done: false }] }));
+    const id = Date.now();
+    setData(p => ({ ...p, network: [...(p.network||[]), { name: networkName, note: networkNote, followUp: networkFollowUp, date: today_k, id, done: false }] }));
+    addWin(`New connection: ${networkName}`, `network-${id}`);
     setNetworkName(""); setNetworkNote(""); setNetworkFollowUp("");
   };
   const toggleNetworkDone = (id) => setData(p => ({ ...p, network: p.network.map(n => n.id===id ? {...n,done:!n.done} : n) }));
   const removeNetwork = (id) => setData(p => ({ ...p, network: p.network.filter(n=>n.id!==id) }));
 
+  // ── Weekly reviews ──
   const sundayReset = (data.sundayReset || {})[week_k] || { worked:"", didnt:"", carrying:"", intention:"" };
   const setSundayReset = (field, val) => setData(p => ({ ...p, sundayReset: { ...p.sundayReset, [week_k]: { ...sundayReset, [field]: val } } }));
   const moneyReview = (data.moneyReview || {})[week_k] || { income:"", spent:"", gap:"", plan:"" };
   const setMoneyReview = (field, val) => setData(p => ({ ...p, moneyReview: { ...p.moneyReview, [week_k]: { ...moneyReview, [field]: val } } }));
 
-  const dailyChecks = ["vitaminIron","vitaminD","skincareAM","skincarePM","todayTreatment","jobApps","tradingStudy","tradeSession","threadsPost","socialPost","journaled","sleep7","scalpMassage","lowManip"];
-  const doneCount = dailyChecks.filter(k=>td(k)).length + (teaLog.length>0?1:0) + (fiberTotal>=25?1:0) + (mood>0?1:0) + (win.length>0?1:0);
-  const totalChecks = dailyChecks.length + 4;
+  // ── Workouts — with win reversal on uncheck ──
+  const workouts = (data.workouts || {})[week_k] || {};
+  const toggleWorkout = (day) => {
+    const wasChecked = !!workouts[day];
+    const updated = { ...workouts, [day]: !wasChecked };
+    const type = WORKOUT_SCHEDULE.find(w => w.day === day)?.type || "Workout";
+    const workoutWinId = `workout-${week_k}-${day}`;
+    const perfectWinId = `perfect-week-${week_k}`;
 
+    if (wasChecked) {
+      // Unchecking: remove the win entry
+      setData(p => {
+        const newWorkouts = { ...p.workouts, [week_k]: updated };
+        const newWins = (p.wins||[]).filter(w => w.winId !== workoutWinId && w.winId !== perfectWinId);
+        return { ...p, workouts: newWorkouts, wins: newWins };
+      });
+    } else {
+      setData(p => ({ ...p, workouts: { ...p.workouts, [week_k]: updated } }));
+      addWin(`${type} done — ${day}`, workoutWinId);
+      const doneCount = Object.values(updated).filter(Boolean).length;
+      if (doneCount === 4) addWin("Perfect week — all 4 workouts done", perfectWinId);
+    }
+  };
+  const workoutsDone = Object.values(workouts).filter(Boolean).length;
+
+  // ── Weigh-in ──
+  const weighLog = data.weighLog || [];
+  const thisWeekWeigh = weighLog.find(w => w.week === week_k);
+  const setWeighIn = (val) => {
+    const entry = { week: week_k, weight: parseFloat(val), date: today_k };
+    setData(p => {
+      const log = p.weighLog || [];
+      const existing = log.findIndex(w => w.week === week_k);
+      const updated = existing > -1 ? log.map((w,i) => i===existing ? entry : w) : [entry, ...log];
+      return { ...p, weighLog: updated };
+    });
+  };
+  const lastWeekWeigh = weighLog[1];
+  const weighDiff = thisWeekWeigh && lastWeekWeigh ? (thisWeekWeigh.weight - lastWeekWeigh.weight).toFixed(1) : null;
+
+  // ── Big Picture helpers ──
+  const bp = data.bigPicture || {};
+  const setBP = (key, val) => setData(p => ({ ...p, bigPicture: { ...(p.bigPicture||{}), [key]: val } }));
+  const bpTracks = bp.tracks || {};
+  const setTrack = (trackKey, val) => setBP("tracks", { ...bpTracks, [trackKey]: { ...(bpTracks[trackKey]||{}), ...val } });
+
+  const ba = bpTracks.britally || {};
+  const ds = bpTracks.devicesales || {};
+  const fn = bpTracks.foundation || {};
+  const bpPipeline = ba.pipeline || [];
+  const bpDecisions = fn.decisionQueue || [];
+  const bpCompanies = ds.targetCompanies || BP_COMPANIES.map(c => ({ ...c, applied: false, interview: false }));
+  const bpCounters = ds.counters || { apps: 0, calls: 0 };
+  const bpReview = (bp.weeklyReview || {})[week_k] || { wins:"", stalled:"", ba:"", ds:"", fn:"" };
+  const setBPReview = (field, val) => setBP("weeklyReview", { ...(bp.weeklyReview||{}), [week_k]: { ...bpReview, [field]: val } });
+
+  const addClient = () => {
+    if (!newClientName.trim()) return;
+    const client = { id: Date.now(), name: newClientName.trim(), stage: newClientStage, note: newClientNote.trim() };
+    setTrack("britally", { pipeline: [...bpPipeline, client] });
+    addWin(`New client added: ${newClientName.trim()}`, `client-add-${client.id}`);
+    setNewClientName(""); setNewClientNote("");
+  };
+  const removeClient = (id) => setTrack("britally", { pipeline: bpPipeline.filter(c => c.id !== id) });
+  const updateClientStage = (id, stage) => {
+    setTrack("britally", { pipeline: bpPipeline.map(c => c.id===id ? {...c,stage} : c) });
+    if (stage === "Paid") addWin(`Client paid: ${bpPipeline.find(c=>c.id===id)?.name||""}`, `client-paid-${id}`);
+  };
+
+  const addDecision = () => {
+    if (!newDecision.trim()) return;
+    setTrack("foundation", { decisionQueue: [...bpDecisions, { id: Date.now(), text: newDecision.trim(), date: today_k, resolved: false }] });
+    setNewDecision("");
+  };
+  const toggleDecision = (id) => {
+    const updated = bpDecisions.map(d => d.id===id ? {...d,resolved:!d.resolved} : d);
+    setTrack("foundation", { decisionQueue: updated });
+    const resolved = updated.find(d=>d.id===id);
+    if (resolved?.resolved) addWin(`Decision resolved: ${resolved.text}`, `decision-${id}`);
+    else removeWinById(`decision-${id}`);
+  };
+  const removeDecision = (id) => setTrack("foundation", { decisionQueue: bpDecisions.filter(d => d.id !== id) });
+
+  const toggleCompany = (i, field) => {
+    const updated = bpCompanies.map((c,idx) => idx===i ? {...c,[field]:!c[field]} : c);
+    setTrack("devicesales", { targetCompanies: updated });
+    if (field==="applied" && !bpCompanies[i].applied) addWin(`Applied to ${bpCompanies[i].name}`, `applied-${bpCompanies[i].name}`);
+    if (field==="interview" && !bpCompanies[i].interview) addWin(`Interview scheduled at ${bpCompanies[i].name}`, `interview-${bpCompanies[i].name}`);
+  };
+  const adjCounter = (key, delta) => {
+    const updated = { ...bpCounters, [key]: Math.max(0, (bpCounters[key]||0)+delta) };
+    setTrack("devicesales", { counters: updated });
+    if (key==="apps" && updated.apps===1) addWin("First job application sent this week", `first-app-${week_k}`);
+  };
+
+  const saveBPReview = () => {
+    const entry = {
+      week: week_k, date: today_k, energy: bp.energy || 0,
+      baIncome: totalIncome, apps: bpCounters.apps || 0,
+      calls: bpCounters.calls || 0, workouts: workoutsDone,
+      weight: thisWeekWeigh?.weight || null,
+      theMove: bp.theMove || "", ...bpReview,
+    };
+    const log = bp.progressLog || [];
+    const existing = log.findIndex(l => l.week === week_k);
+    const updated = existing > -1 ? log.map((l,i) => i===existing ? entry : l) : [entry, ...log];
+    setBP("progressLog", updated);
+  };
+
+  // ── Computed score ──
+  const scoredChecks = DAILY_SCORE_CHECKS.filter(k=>td(k)).length;
+  const teaScore = teaLog.length > 0 ? 1 : 0;
+  const fiberScore = fiberTotal >= 25 ? 1 : 0;
+  const moodScore = mood > 0 ? 1 : 0;
+  const winScore = win.length > 5 ? 1 : 0;
+  const doneCount = scoredChecks + teaScore + fiberScore + moodScore + winScore;
+  const totalChecks = DAILY_SCORE_CHECKS.length + 4;
+  const pct = Math.round((doneCount/totalChecks)*100);
+  const streak = calcStreak(data.daily);
+  const todaySkincare = SKINCARE_SCHEDULE[todayDOW];
+
+  // ── Calendar ──
   const calEvents = data.calEvents || {};
   const calDayKey = (d) => d.toISOString().split("T")[0];
   const addEvent = () => {
-    if (!newEvent.trim() || !selectedDay) return;
-    const entry = { text: newEvent.trim(), type: eventType, id: Date.now() };
+    if (!newEvent.text.trim() || !selectedDay) return;
+    const entry = { ...newEvent, text: newEvent.text.trim(), id: Date.now() };
     setData(p => ({ ...p, calEvents: { ...p.calEvents, [selectedDay]: [...(p.calEvents?.[selectedDay]||[]), entry] } }));
-    setNewEvent("");
+    setNewEvent({ text:"", type:"event", time:"", location:"", description:"" });
   };
   const removeEvent = (day, id) => setData(p => ({ ...p, calEvents: { ...p.calEvents, [day]: p.calEvents[day].filter(e=>e.id!==id) } }));
   const getDaysInMonth = (d) => new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
   const getFirstDayOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
-  const eventTypeColors = { appointment:"#c090d0", bill:"#e8a070", reminder:"#70b8d0", personal:"#90c870" };
+  const eventTypeColors = { deadline:"#C9A8B2", event:"#8A7BA6", bill:"#C9A870", appointment:"#7BA6A6" };
 
   const allTodos = data.todos || [];
   const addTodo = () => {
@@ -265,274 +444,569 @@ export default function Dashboard() {
   const activeTodos = allTodos.filter(t => !t.done || t.completedOn === today_k);
   const todayCalEvents = (data.calEvents||{})[today_k] || [];
 
-  const pct = Math.round((doneCount/totalChecks)*100);
-  const streak = calcStreak(data.daily, dailyChecks);
-  const todaySkincare = SKINCARE_SCHEDULE[todayDOW];
+  // ── Styles ──
+  const inp = {
+    fontFamily:"'DM Sans',sans-serif", fontSize:13, color:C.text,
+    background:"#FAFAF8", border:`1px solid ${C.border}`,
+    borderRadius:6, padding:"9px 12px", outline:"none", width:"100%",
+  };
+  const cardStyle = (delay=0) => ({
+    background:"#FFFFFF", borderRadius:8, padding:"20px 22px", marginBottom:10,
+    border:`1px solid ${C.border}`, animation:`fadeUp 0.35s ${delay}s ease forwards`, opacity:0,
+  });
+  const pillBtn = (active) => ({
+    padding:"7px 16px", borderRadius:4, border:`1px solid ${active ? "#FFFFFF" : "rgba(255,255,255,0.4)"}`,
+    cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:500,
+    letterSpacing:0.3, background:active ? "#FFFFFF" : "transparent",
+    color:active ? C.rose : "#FFFFFF", transition:"all 0.15s",
+  });
 
-  const inp = { fontFamily:"'DM Sans',sans-serif", fontSize:13, color:"#2a1a3a", background:"rgba(245,238,252,0.55)", border:"1px solid rgba(200,180,225,0.4)", borderRadius:10, padding:"8px 12px", outline:"none", width:"100%" };
-  const cardStyle = (delay=0) => ({ background:"rgba(255,251,254,0.86)", backdropFilter:"blur(16px)", borderRadius:20, padding:"18px 20px", marginBottom:12, border:"1px solid rgba(220,200,235,0.45)", boxShadow:"0 2px 24px rgba(140,100,180,0.07)", animation:`fadeUp 0.4s ${delay}s ease forwards`, opacity:0 });
-  const pillBtn = (active, color="#9060c0") => ({ padding:"7px 18px", borderRadius:30, border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif", fontSize:12.5, fontWeight:500, letterSpacing:0.4, background:active?color:"rgba(235,225,248,0.7)", color:active?"#fff":"#9070b0", boxShadow:active?`0 3px 12px ${color}55`:"none", transition:"all 0.2s" });
-
-  const Row = ({ label, k, note, color="#9060c0" }) => {
+  const Row = ({ label, k, note, color }) => {
+    const acc = color || C.rose;
     const checked = !!td(k);
     return (
-      <div onClick={()=>toggle(k)} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 8px", borderRadius:10, cursor:"pointer", background:checked?`${color}14`:"transparent", transition:"background 0.15s" }}>
-        <div style={{ width:20, height:20, borderRadius:6, flexShrink:0, marginTop:1, border:`2px solid ${checked?color:"rgba(180,150,210,0.4)"}`, background:checked?color:"transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.2s" }}>
-          {checked && <span style={{color:"#fff",fontSize:10,fontWeight:800}}>✓</span>}
+      <div onClick={()=>toggle(k)} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"9px 0", borderBottom:`1px solid ${C.border}`, cursor:"pointer" }}>
+        <div style={{ width:18, height:18, borderRadius:3, flexShrink:0, marginTop:1, border:`1.5px solid ${checked ? acc : C.borderDark}`, background:checked ? acc : "transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.15s" }}>
+          {checked && <span style={{color:"#fff",fontSize:9,fontWeight:800}}>✓</span>}
         </div>
         <div>
-          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13.5, color:checked?color:"#2a1a3a", textDecoration:checked?"line-through":"none", opacity:checked?0.7:1, margin:0, lineHeight:1.4 }}>{label}</p>
-          {note && !checked && <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:10.5, color:"rgba(130,100,160,0.55)", fontStyle:"italic", margin:"2px 0 0" }}>{note}</p>}
+          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13.5, color:checked ? acc : C.text, textDecoration:checked?"line-through":"none", opacity:checked?0.65:1, margin:0, lineHeight:1.4 }}>{label}</p>
+          {note && !checked && <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, fontStyle:"italic", margin:"2px 0 0" }}>{note}</p>}
         </div>
       </div>
     );
   };
 
-  const SectionHead = ({icon,title,sub}) => (
-    <div style={{marginBottom:12}}>
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:20}}>{icon}</span>
-        <span style={{fontSize:17,fontWeight:500,color:"#1e0e2e"}}>{title}</span>
-      </div>
-      {sub && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#a080c0",marginTop:2,marginLeft:28,fontStyle:"italic"}}>{sub}</p>}
+  const SectionHead = ({title, sub, accent}) => (
+    <div style={{marginBottom:14}}>
+      <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:17, fontWeight:500, color:C.text, margin:0, letterSpacing:0.3}}>{title}</p>
+      {sub && <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, margin:"3px 0 0"}}>{sub}</p>}
+      <div style={{height:1, background:accent||C.border, marginTop:10}}/>
     </div>
   );
 
-  const Divider = () => <div style={{height:1,background:"rgba(200,180,220,0.2)",margin:"8px 0"}}/>;
+  const Divider = () => <div style={{height:1, background:C.border, margin:"10px 0"}}/>;
 
-  const CounterRow = ({k,label,target,icon,color}) => {
+  const CounterRow = ({k, label, target, icon, color}) => {
     const val=wk(k); const done=val>=target; const p=Math.min((val/target)*100,100);
     return (
-      <div style={{marginBottom:12,padding:"10px 12px",borderRadius:12,background:done?`${color}18`:"rgba(240,232,250,0.4)"}}>
+      <div style={{marginBottom:14}}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-          <span style={{fontSize:18}}>{icon}</span>
-          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,flex:1,color:done?color:"#2a1a3a",fontWeight:500,textDecoration:done?"line-through":"none",opacity:done?0.75:1}}>{label}</span>
-          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,color:done?color:"#9070b0"}}>{val}/{target}</span>
-          <button onClick={()=>decWk(k)} style={{width:26,height:26,borderRadius:7,border:`1.5px solid ${color}60`,background:"transparent",color,fontSize:15,cursor:"pointer",fontWeight:700}}>−</button>
-          <button onClick={()=>incWk(k)} style={{width:26,height:26,borderRadius:7,border:"none",background:color,color:"#fff",fontSize:15,cursor:"pointer",fontWeight:700}}>+</button>
+          <span style={{fontSize:16}}>{icon}</span>
+          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,flex:1,color:done?color:C.text,fontWeight:500,textDecoration:done?"line-through":"none",opacity:done?0.65:1}}>{label}</span>
+          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:done?color:C.textMid}}>{val}/{target}</span>
+          <button onClick={()=>decWk(k)} style={{width:26,height:26,borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:14,cursor:"pointer",fontWeight:700}}>−</button>
+          <button onClick={()=>incWk(k)} style={{width:26,height:26,borderRadius:4,border:`1px solid ${color}`,background:color,color:"#fff",fontSize:14,cursor:"pointer",fontWeight:700}}>+</button>
         </div>
-        <div style={{height:5,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden"}}>
-          <div style={{height:"100%",width:`${p}%`,background:`linear-gradient(90deg,${color}88,${color})`,borderRadius:3,transition:"width 0.4s ease"}}/>
+        <div style={{height:3,borderRadius:2,background:C.border,overflow:"hidden"}}>
+          <div style={{height:"100%",width:`${p}%`,background:color,borderRadius:2,transition:"width 0.4s ease"}}/>
         </div>
       </div>
     );
   };
 
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(150deg,#fdf0f8 0%,#f5eaf8 30%,#ece8f5 60%,#edf4f0 100%)", fontFamily:"'Playfair Display',Georgia,serif", color:"#2a1a3a", paddingBottom:80 }}>
+    <div style={{ minHeight:"100vh", background:C.bg, fontFamily:"'DM Sans',sans-serif", color:C.text, paddingBottom:80 }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=DM+Sans:wght@300;400;500;600&display=swap');
         *{box-sizing:border-box;}
         ::-webkit-scrollbar{width:3px;}
-        ::-webkit-scrollbar-thumb{background:rgba(180,140,210,0.3);border-radius:2px;}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes affirmFade{0%{opacity:0;transform:translateY(5px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-5px)}}
+        ::-webkit-scrollbar-thumb{background:${C.border};border-radius:2px;}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes affirmFade{0%{opacity:0;transform:translateY(4px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-4px)}}
         @keyframes shimmer{0%{background-position:200% center}100%{background-position:-200% center}}
-        .rhov:hover{background:rgba(180,140,210,0.08)!important;}
-        input::placeholder,textarea::placeholder{color:rgba(140,110,170,0.45);}
+        .row-hover:hover{background:${C.ivory}!important;}
+        input::placeholder,textarea::placeholder{color:${C.textFaint};}
         select{-webkit-appearance:none;}
-        button{transition:opacity 0.15s;}
-        button:hover{opacity:0.82;}
-        .gold-shimmer{
-          background: linear-gradient(90deg, #b8860b 0%, #ffd700 25%, #fffacd 50%, #ffd700 75%, #b8860b 100%);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          animation: shimmer 4s linear infinite;
-          font-family: 'Playfair Display', Georgia, serif;
-          font-style: italic;
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: 0.3px;
-          line-height: 1.5;
+        button:hover{opacity:0.8;}
+        .title-shimmer{
+          background: linear-gradient(90deg, #C9A8B2 0%, #F0D8DF 25%, #FFF8FA 50%, #F0D8DF 75%, #C9A8B2 100%);
+          background-size:200% auto;
+          -webkit-background-clip:text;
+          -webkit-text-fill-color:transparent;
+          background-clip:text;
+          animation:shimmer 5s linear infinite;
         }
+        .gold-shimmer{
+          background: linear-gradient(90deg, #8B6914 0%, #C9A84C 20%, #F0D080 40%, #FFFACD 50%, #F0D080 60%, #C9A84C 80%, #8B6914 100%);
+          background-size:200% auto;
+          -webkit-background-clip:text;
+          -webkit-text-fill-color:transparent;
+          background-clip:text;
+          animation:shimmer 6s linear infinite;
+        }
+        textarea{resize:vertical;}
+        select option{background:#fff;color:${C.text};}
       `}</style>
 
       {/* MOTTO */}
-      <div style={{padding:"12px 20px 0",textAlign:"center"}}>
-        <p className="gold-shimmer" style={{margin:0}}>"I'd rather die enormous than live dormant — that's how we on it." — Jay-Z</p>
+      <div style={{padding:"14px 20px 0", textAlign:"center", borderBottom:`1px solid ${C.border}`}}>
+        <p className="gold-shimmer" style={{
+          margin:"0 0 14px",
+          fontFamily:"'Cormorant Garamond',Georgia,serif",
+          fontStyle:"italic", fontSize:13.5, fontWeight:500, letterSpacing:0.4, lineHeight:1.6,
+        }}>"I'd rather die enormous than live dormant — that's how we on it." — Jay-Z</p>
       </div>
 
-      {/* HEADER */}
-      <div style={{background:"linear-gradient(135deg,#f0d8ec 0%,#ddd0ee 40%,#c8d5eb 100%)",padding:"26px 20px 22px",textAlign:"center",position:"relative",overflow:"hidden"}}>
-        <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 20% 60%,rgba(255,255,255,0.32) 0%,transparent 55%),radial-gradient(ellipse at 80% 15%,rgba(255,255,255,0.2) 0%,transparent 50%)"}}/>
-        <div style={{position:"relative",zIndex:1}}>
-          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,letterSpacing:3.5,textTransform:"uppercase",color:"#8060a8",fontWeight:600,margin:0}}>
+      {/* ── HEADER ── */}
+      <div style={{background:"linear-gradient(to bottom, #D9BEC5, #EDE0E4)", padding:"22px 20px 18px", borderBottom:`1px solid ${C.roseMid}`}}>
+        <div style={{maxWidth:680, margin:"0 auto"}}>
+          <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, letterSpacing:3, textTransform:"uppercase", color:C.textLight, fontWeight:500, margin:"0 0 4px"}}>
             {todayDOW} · {today.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}
           </p>
-          <h1 style={{margin:"5px 0 2px",fontSize:28,fontWeight:600,fontStyle:"italic",color:"#1e0a30",letterSpacing:0.3}}>Your Optimal Life ✦</h1>
-          <div style={{display:"flex",justifyContent:"center",alignItems:"center",gap:14,marginBottom:2,flexWrap:"wrap"}}>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#7050a0",margin:0}}>{pct}% of today complete</p>
-            <div style={{display:"flex",alignItems:"center",gap:6,background:"rgba(255,255,255,0.35)",borderRadius:20,padding:"3px 12px"}}>
-              <span style={{fontSize:14}}>{streakEmoji(streak)}</span>
-              <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,color:"#5a2a8a"}}>{streak} day streak</span>
-              {streak === 0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#9070b0"}}>— start today</span>}
-            </div>
-          </div>
+          <h1 className="title-shimmer" style={{
+            margin:"0 0 12px", fontSize:30, fontWeight:600, fontStyle:"italic",
+            fontFamily:"'Cormorant Garamond',Georgia,serif", letterSpacing:0.5, color:C.text,
+          }}>My Optimal Life</h1>
 
-          <div style={{maxWidth:460,margin:"14px auto 14px",background:"rgba(255,255,255,0.3)",borderRadius:24,padding:"10px 20px",minHeight:46,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <p key={affirmIdx} style={{fontFamily:"'Playfair Display',Georgia,serif",fontSize:12.5,color:"#3a1a5a",fontStyle:"italic",lineHeight:1.55,margin:0,animation:"affirmFade 7s ease forwards",textAlign:"center"}}>
-              ✦ {AFFIRMATIONS[affirmIdx]}
+          {/* Affirmation */}
+          <div style={{margin:"0 0 14px", minHeight:38, display:"flex", alignItems:"center"}}>
+            <p key={affirmIdx} style={{
+              fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:14, color:C.textMid,
+              fontStyle:"italic", lineHeight:1.6, margin:0, animation:"affirmFade 7s ease forwards", fontWeight:600,
+            }}>
+              {AFFIRMATIONS[affirmIdx]}
             </p>
           </div>
 
-          <div style={{display:"flex",justifyContent:"center",gap:8,flexWrap:"wrap",marginBottom:14}}>
-            <div style={{display:"inline-flex",alignItems:"center",gap:6,background:`${todaySkincare.color}28`,borderRadius:20,padding:"5px 14px",border:`1px solid ${todaySkincare.color}55`}}>
-              <span style={{fontSize:12}}>✨</span>
-              <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#4a2a6a",fontWeight:500}}>Today: <strong>{todaySkincare.treatment}</strong></span>
+          {/* Skincare badge */}
+          <div style={{display:"flex", gap:8, flexWrap:"wrap", marginBottom:16}}>
+            <div style={{display:"inline-flex", alignItems:"center", gap:6, background:C.ivory, borderRadius:4, padding:"5px 12px", border:`1px solid ${C.border}`}}>
+              <span style={{fontFamily:"'DM Sans',sans-serif", fontSize:11.5, color:C.textMid}}>
+                Today's treatment — <strong style={{color:C.rose}}>{todaySkincare.treatment}</strong>
+              </span>
             </div>
             {riceCountdown !== null && (
-              <div style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(160,200,140,0.22)",borderRadius:20,padding:"5px 14px",border:"1px solid rgba(110,170,90,0.35)"}}>
-                <span style={{fontSize:12}}>🌾</span>
-                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#2a4a18",fontWeight:500}}>
-                  {riceCountdown===0?"Rice treatment TODAY!":riceCountdown>0?`Rice in ${riceCountdown}d`:`Rice ${Math.abs(riceCountdown)}d overdue`}
+              <div style={{display:"inline-flex", alignItems:"center", gap:6, background:C.ivory, borderRadius:4, padding:"5px 12px", border:`1px solid ${C.border}`}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif", fontSize:11.5, color:C.textMid}}>
+                  Rice water —{" "}
+                  <strong style={{color:riceCountdown<=0?C.rose:C.textMid}}>
+                    {riceCountdown===0?"today":riceCountdown>0?`in ${riceCountdown}d`:`${Math.abs(riceCountdown)}d overdue`}
+                  </strong>
                 </span>
               </div>
             )}
           </div>
 
-          <div style={{display:"flex",justifyContent:"center"}}>
-            <div style={{position:"relative",width:68,height:68}}>
-              <svg width={68} height={68} style={{transform:"rotate(-90deg)"}}>
-                <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#e090c0"/><stop offset="100%" stopColor="#8060d0"/></linearGradient></defs>
-                <circle cx={34} cy={34} r={27} fill="none" stroke="rgba(200,180,220,0.22)" strokeWidth={7}/>
-                <circle cx={34} cy={34} r={27} fill="none" stroke="url(#rg)" strokeWidth={7} strokeDasharray={`${(pct/100)*170} 170`} strokeLinecap="round" style={{transition:"stroke-dasharray 0.6s ease"}}/>
-              </svg>
-              <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,color:"#5a2a8a"}}>{pct}%</span>
-              </div>
+          {/* SYNERGY TILES */}
+          <div style={{marginBottom:14}}>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9, letterSpacing:2.5, textTransform:"uppercase", color:C.textFaint, margin:"0 0 8px", fontWeight:600}}>Synergy</p>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6}}>
+              {[
+                { label:"Today", value:`${pct}%`, sub:`${doneCount}/${totalChecks}`, color:C.rose },
+                { label:"Mood", value:["","😔","😐","🙂","😊","🌟"][mood]||"—", sub:["","Rough","Low","Okay","Good","Thriving"][mood]||"—", color:["","#C07070","#C09060","#A0A040","#70A860","#50A890"][mood]||C.textLight, emoji:true },
+                { label:"Fiber", value:`${fiberTotal.toFixed(0)}g`, sub:"of 25g", color:fiberTotal>=25?C.green:fiberTotal>=15?C.gold:"#B07050", bar:Math.min((fiberTotal/25)*100,100) },
+                { label:"Income", value:totalIncome>0?`$${Math.round(totalIncome)}`:"—", sub:`${bpPipeline.filter(c=>c.stage!=="Paid").length} active`, color:C.green, onClick:()=>setTab("bigpicture") },
+                { label:"Apps", value:bpCounters.apps||0, sub:`${bpCounters.calls||0} calls`, color:(bpCounters.apps||0)>=3?C.green:C.gold, onClick:()=>setTab("bigpicture") },
+              ].map((t,i) => (
+                <div key={i} onClick={t.onClick} style={{background:C.ivory, borderRadius:6, padding:"10px 6px", textAlign:"center", border:`1px solid ${C.border}`, cursor:t.onClick?"pointer":"default"}}>
+                  <p style={{fontFamily:t.emoji?"inherit":"'DM Sans',sans-serif", fontSize:t.emoji?18:15, fontWeight:600, color:t.color, margin:"0 0 2px", lineHeight:1}}>{t.value}</p>
+                  {t.bar !== undefined && <div style={{height:2, borderRadius:1, background:C.border, overflow:"hidden", margin:"4px 0"}}><div style={{height:"100%", width:`${t.bar}%`, background:t.color, borderRadius:1}}/></div>}
+                  <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9, color:C.textLight, margin:0, textTransform:"uppercase", letterSpacing:0.8}}>{t.label}</p>
+                  <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9, color:C.textFaint, margin:0}}>{t.sub}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Workouts this week */}
+          <div style={{background:C.ivory, borderRadius:6, padding:"12px 14px", border:`1px solid ${C.border}`}}>
+            <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9, letterSpacing:2, textTransform:"uppercase", color:C.textLight, margin:0, fontWeight:600}}>Movement this week</p>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:600, color:C.green, margin:0}}>{workoutsDone}/4</p>
+            </div>
+            <div style={{display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6}}>
+              {WORKOUT_SCHEDULE.map(({day,type,short}) => {
+                const done = !!workouts[day];
+                const typeColor = type==="Strength" ? C.green : C.purple;
+                return (
+                  <div key={day} onClick={()=>toggleWorkout(day)} style={{background:done?"rgba(123,166,138,0.12)":"#FFFFFF", borderRadius:5, padding:"8px 4px", textAlign:"center", cursor:"pointer", border:`1px solid ${done?"rgba(123,166,138,0.4)":C.border}`, transition:"all 0.15s"}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:600, color:done?C.green:C.text, margin:"0 0 2px"}}>{short}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9, color:done?C.green:typeColor, margin:"0 0 4px"}}>{type}</p>
+                    <span style={{fontSize:11}}>{done?"✓":"○"}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
       {/* NAV */}
-      <div style={{display:"flex",justifyContent:"center",gap:6,padding:"14px 14px 8px",flexWrap:"wrap"}}>
-        {[["today","Today"],["weekly","Weekly"],["calendar","Calendar"],["finance","Finance"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
+      <div style={{display:"flex", justifyContent:"center", gap:4, padding:"14px 14px 6px", flexWrap:"wrap", borderBottom:`1px solid ${C.border}`, background:"linear-gradient(to right, #7BA68A, #8A7BA6)"}}>
+        {[["today","Today"],["bigpicture","Big Picture"],["weekly","Weekly"],["calendar","Calendar"],["finance","Finance"],["network","Network"],["notes","Notes"]].map(([k,l])=>(
           <button key={k} style={pillBtn(tab===k)} onClick={()=>setTab(k)}>{l}</button>
         ))}
       </div>
 
-      {/* Cloud loading indicator */}
-      {!cloudLoaded && (
-        <div style={{textAlign:"center",padding:"4px 0 8px"}}>
-          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#b090c0",fontStyle:"italic"}}>✦ syncing…</span>
-        </div>
-      )}
+      <div style={{maxWidth:680, margin:"0 auto", padding:"12px 14px", background: tab==="today" ? "linear-gradient(to bottom, #F0DDE2, #F8F2F4)" : "transparent", minHeight:"calc(100vh - 200px)"}}>
 
-      <div style={{maxWidth:680,margin:"0 auto",padding:"8px 14px"}}>
+        {/* ══ BIG PICTURE ══ */}
+        {tab==="bigpicture" && (<>
+
+          {/* Wins Feed */}
+          {(data.wins||[]).length > 0 && (
+            <div style={cardStyle(0)}>
+              <SectionHead title="Wins" sub="Captured as you go"/>
+              {(data.wins||[]).slice(0,8).map(w => (
+                <div key={w.id} style={{display:"flex", gap:10, padding:"8px 0", borderBottom:`1px solid ${C.border}`}}>
+                  <span style={{fontSize:11, color:C.rose, flexShrink:0, marginTop:3}}>◆</span>
+                  <div style={{flex:1}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:13, color:C.text, margin:0}}>{w.text}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, margin:"2px 0 0"}}>{fmtDate(w.date)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* The Move */}
+          <div style={{...cardStyle(0.03), borderLeft:`2px solid ${C.rose}`}}>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:9.5, letterSpacing:2, textTransform:"uppercase", color:C.rose, fontWeight:600, margin:"0 0 4px"}}>The move this week</p>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, margin:"0 0 8px", fontStyle:"italic"}}>One thing. Not a list.</p>
+            <input value={bp.theMove||""} onChange={e=>setBP("theMove",e.target.value)} placeholder="This week, the most important thing I can do is…" style={{...inp, fontSize:14, fontFamily:"'Cormorant Garamond',Georgia,serif", fontStyle:"italic"}}/>
+          </div>
+
+          {/* BritAlly Track */}
+          <div style={cardStyle(0.05)}>
+            <SectionHead title="BritAlly" sub="Build · ship · close"/>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10}}>
+              <div>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Status</p>
+                <select value={ba.status||""} onChange={e=>setTrack("britally",{status:e.target.value})} style={{...inp, cursor:"pointer"}}>
+                  <option value="">Select…</option>
+                  {["Building","Active","Paused","Blocked"].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Month income</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:26, fontWeight:500, color:C.green, margin:0}}>${totalIncome.toFixed(0)}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, margin:0}}>from Finance tab</p>
+              </div>
+            </div>
+            <div style={{marginBottom:10}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Weekly goal</p>
+              <input value={ba.weeklyGoal||""} onChange={e=>setTrack("britally",{weeklyGoal:e.target.value})} placeholder="e.g. Close 1 new client, finish Derrick's integration" style={inp}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Next move</p>
+              <input value={ba.nextMove||""} onChange={e=>setTrack("britally",{nextMove:e.target.value})} placeholder="One specific action" style={inp}/>
+            </div>
+            <Divider/>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 10px", fontWeight:600}}>Client pipeline</p>
+            {bpPipeline.length===0 && <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:12.5, color:C.textFaint, fontStyle:"italic", marginBottom:10}}>No clients yet</p>}
+            {bpPipeline.map(c => (
+              <div key={c.id} style={{display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderRadius:5, marginBottom:6, background:C.ivory, border:`1px solid ${C.border}`}}>
+                <div style={{flex:1}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:13.5, fontWeight:600, color:C.text, margin:"0 0 2px"}}>{c.name}</p>
+                  {c.note && <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textMid, margin:0}}>{c.note}</p>}
+                </div>
+                <select value={c.stage} onChange={e=>updateClientStage(c.id,e.target.value)} style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:500, color:C.text, background:C.ivory, border:`1px solid ${C.borderDark}`, borderRadius:4, padding:"4px 8px", cursor:"pointer", outline:"none"}}>
+                  {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+                <span onClick={()=>removeClient(c.id)} style={{cursor:"pointer", color:C.textFaint, fontSize:16, padding:2}}>×</span>
+              </div>
+            ))}
+            <div style={{display:"grid", gridTemplateColumns:"1fr 120px", gap:6, marginBottom:6}}>
+              <input value={newClientName} onChange={e=>setNewClientName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addClient()} placeholder="Client name…" style={inp}/>
+              <select value={newClientStage} onChange={e=>setNewClientStage(e.target.value)} style={{...inp, cursor:"pointer"}}>
+                {STAGES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <input value={newClientNote} onChange={e=>setNewClientNote(e.target.value)} placeholder="Note (optional)" style={{...inp, marginBottom:8}}/>
+            <button onClick={addClient} style={{width:"100%", padding:"10px", borderRadius:5, border:`1px solid ${C.roseMid}`, cursor:"pointer", background:C.roseLight, color:C.rose, fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:500}}>+ Add client</button>
+          </div>
+
+          {/* Device Sales Track */}
+          <div style={cardStyle(0.07)}>
+            <SectionHead title="Device Sales Push" sub="Ortho · Sports Med · Atlanta"/>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12}}>
+              <div>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Status</p>
+                <select value={ds.status||""} onChange={e=>setTrack("devicesales",{status:e.target.value})} style={{...inp, cursor:"pointer"}}>
+                  <option value="">Select…</option>
+                  {["Not Started","Building","Active","Paused"].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>LinkedIn connections</p>
+                <div style={{display:"flex", alignItems:"center", gap:8}}>
+                  <button onClick={()=>setTrack("devicesales",{linkedinConnections:Math.max(0,(ds.linkedinConnections||0)-1)})} style={{width:26,height:26,borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:14,cursor:"pointer",fontWeight:700}}>−</button>
+                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,fontWeight:600,color:C.gold}}>{ds.linkedinConnections||0}</span>
+                  <button onClick={()=>setTrack("devicesales",{linkedinConnections:(ds.linkedinConnections||0)+1})} style={{width:26,height:26,borderRadius:4,border:`1px solid ${C.gold}`,background:C.gold,color:"#fff",fontSize:14,cursor:"pointer",fontWeight:700}}>+</button>
+                </div>
+              </div>
+            </div>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:12}}>
+              {[
+                {label:"Apps this week",key:"apps",color:C.gold},
+                {label:"Info calls done",key:"calls",color:C.purple},
+              ].map(({label,key,color}) => (
+                <div key={key} style={{background:C.ivory, borderRadius:5, padding:"10px", textAlign:"center", border:`1px solid ${C.border}`}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, marginBottom:6}}>{label}</p>
+                  <div style={{display:"flex", alignItems:"center", justifyContent:"center", gap:6}}>
+                    <button onClick={()=>adjCounter(key,-1)} style={{width:22,height:22,borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:13,cursor:"pointer",fontWeight:700}}>−</button>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:18,fontWeight:600,color}}>{bpCounters[key]||0}</span>
+                    <button onClick={()=>adjCounter(key,1)} style={{width:22,height:22,borderRadius:4,border:`1px solid ${color}`,background:color,color:"#fff",fontSize:13,cursor:"pointer",fontWeight:700}}>+</button>
+                  </div>
+                </div>
+              ))}
+              <div onClick={()=>setTrack("devicesales",{shadowDone:!ds.shadowDone})} style={{background:ds.shadowDone?"rgba(123,166,138,0.1)":C.ivory, borderRadius:5, padding:"10px", textAlign:"center", border:`1px solid ${ds.shadowDone?"rgba(123,166,138,0.4)":C.border}`, cursor:"pointer"}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, marginBottom:6}}>OR shadow</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:500, color:ds.shadowDone?C.green:C.textLight, margin:0}}>{ds.shadowDone?"Done ✓":"Not yet"}</p>
+              </div>
+            </div>
+            <div style={{marginBottom:10}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Weekly goal</p>
+              <input value={ds.weeklyGoal||""} onChange={e=>setTrack("devicesales",{weeklyGoal:e.target.value})} placeholder="e.g. Apply to Stryker, book 2 informational calls" style={inp}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Next move</p>
+              <input value={ds.nextMove||""} onChange={e=>setTrack("devicesales",{nextMove:e.target.value})} placeholder="One specific action" style={inp}/>
+            </div>
+            <Divider/>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 10px", fontWeight:600}}>Target companies</p>
+            {bpCompanies.map((c,i) => (
+              <div key={c.name} style={{display:"flex", alignItems:"center", gap:8, padding:"10px 12px", borderRadius:5, marginBottom:6, background:c.interview?"rgba(123,166,138,0.07)":c.applied?"rgba(184,149,106,0.07)":C.ivory, border:`1px solid ${c.interview?"rgba(123,166,138,0.3)":c.applied?"rgba(184,149,106,0.3)":C.border}`}}>
+                <div style={{width:20,height:20,borderRadius:3,background:C.gold,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:9,fontWeight:800,color:"#fff"}}>{c.priority}</span>
+                </div>
+                <div style={{flex:1}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,color:C.text,margin:0}}>{c.name}</p>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textMid,margin:0}}>{c.role}</p>
+                </div>
+                <button onClick={()=>toggleCompany(i,"applied")} style={{padding:"4px 10px",borderRadius:4,border:`1px solid ${c.applied?C.gold:C.border}`,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:500,background:c.applied?"rgba(184,149,106,0.12)":"transparent",color:c.applied?C.gold:C.textLight}}>
+                  {c.applied?"✓ Applied":"Applied?"}
+                </button>
+                <button onClick={()=>toggleCompany(i,"interview")} style={{padding:"4px 10px",borderRadius:4,border:`1px solid ${c.interview?C.green:C.border}`,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:500,background:c.interview?"rgba(123,166,138,0.12)":"transparent",color:c.interview?C.green:C.textLight}}>
+                  {c.interview?"✓ Interview":"Interview?"}
+                </button>
+              </div>
+            ))}
+            <Divider/>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 10px", fontWeight:600}}>90-day plan</p>
+            {BP_PHASES.map(({phase,task}) => (
+              <div key={phase} style={{display:"flex",gap:10,marginBottom:8,alignItems:"flex-start",paddingBottom:8,borderBottom:`1px solid ${C.border}`}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:700,color:C.gold,minWidth:44,flexShrink:0,marginTop:2}}>{phase}</span>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textMid,margin:0,lineHeight:1.55}}>{task}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Foundation Track */}
+          <div style={cardStyle(0.09)}>
+            <SectionHead title="Personal Foundation" sub="The base everything else runs on"/>
+            <div style={{marginBottom:10}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Weekly goal</p>
+              <input value={fn.weeklyGoal||""} onChange={e=>setTrack("foundation",{weeklyGoal:e.target.value})} placeholder="e.g. Sleep 7+ hrs 5 nights, walk daily, no skipped iron" style={inp}/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px"}}>Next move</p>
+              <input value={fn.nextMove||""} onChange={e=>setTrack("foundation",{nextMove:e.target.value})} placeholder="What would most support you this week?" style={inp}/>
+            </div>
+            <Divider/>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:10, color:C.textLight, textTransform:"uppercase", letterSpacing:1, margin:"0 0 5px", fontWeight:600}}>Decision queue</p>
+            <p style={{fontFamily:"'DM Sans',sans-serif", fontSize:11, color:C.textLight, margin:"0 0 12px", fontStyle:"italic"}}>Name what you're sitting on so it stops creating drag.</p>
+            {bpDecisions.filter(d=>!d.resolved).length===0 && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textFaint,fontStyle:"italic",marginBottom:10}}>No open decisions — clear mind</p>}
+            {bpDecisions.filter(d=>!d.resolved).map(d => (
+              <div key={d.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"10px 12px",borderRadius:5,marginBottom:6,background:C.ivory,border:`1px solid ${C.border}`}}>
+                <div style={{flex:1}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text,margin:"0 0 2px",fontWeight:500}}>{d.text}</p>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:0}}>{fmtDate(d.date)}</p>
+                </div>
+                <button onClick={()=>toggleDecision(d.id)} style={{padding:"4px 10px",borderRadius:4,border:`1px solid ${C.border}`,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:500,background:"transparent",color:C.textMid,flexShrink:0}}>Resolved</button>
+                <span onClick={()=>removeDecision(d.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:16,padding:2}}>×</span>
+              </div>
+            ))}
+            {bpDecisions.filter(d=>d.resolved).length>0 && <>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textTransform:"uppercase",letterSpacing:1,margin:"8px 0 4px"}}>Resolved</p>
+              {bpDecisions.filter(d=>d.resolved).map(d => (
+                <div key={d.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 12px",opacity:0.45}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,flex:1,margin:0,textDecoration:"line-through"}}>{d.text}</p>
+                  <span onClick={()=>removeDecision(d.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:15}}>×</span>
+                </div>
+              ))}
+            </>}
+            <div style={{display:"flex",gap:8,marginTop:10}}>
+              <input value={newDecision} onChange={e=>setNewDecision(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addDecision()} placeholder="A decision I'm sitting on…" style={{...inp,flex:1}}/>
+              <button onClick={addDecision} style={{padding:"8px 16px",borderRadius:5,border:`1px solid ${C.green}`,cursor:"pointer",background:C.green,color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,flexShrink:0}}>+</button>
+            </div>
+          </div>
+
+          {/* Weekly Review */}
+          <div style={cardStyle(0.11)}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:17,fontWeight:500,color:C.text,margin:0}}>Weekly Review</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textLight,margin:"3px 0 0"}}>10 minutes, every Sunday</p>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight}}>Energy</span>
+                {[1,2,3,4,5].map(n => (
+                  <button key={n} onClick={()=>setBP("energy",n)} style={{width:22,height:22,padding:0,borderRadius:3,border:`1px solid ${(bp.energy||0)>=n?C.rose:C.border}`,background:(bp.energy||0)>=n?C.roseLight:"transparent",fontFamily:"'DM Sans',sans-serif",fontSize:10,color:(bp.energy||0)>=n?C.rose:C.textFaint,cursor:"pointer"}}>{n}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{height:1,background:C.border,marginBottom:14}}/>
+            {[
+              {key:"wins",label:"What moved this week?",ph:"Wins, momentum, things that clicked…"},
+              {key:"stalled",label:"What stalled — and why?",ph:"Honest read, no judgment, just data"},
+              {key:"ba",label:"BritAlly pulse",ph:"Client status, income, what needs attention…"},
+              {key:"ds",label:"Device sales pulse",ph:"Apps sent, calls booked, what's working…"},
+              {key:"fn",label:"How you're actually doing",ph:"Energy, body, mood, what you need…"},
+            ].map(({key,label,ph}) => (
+              <div key={key} style={{marginBottom:12}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:C.textMid,margin:"0 0 5px"}}>{label}</p>
+                <textarea value={bpReview[key]||""} onChange={e=>setBPReview(key,e.target.value)} placeholder={ph} style={{...inp,minHeight:52,lineHeight:1.6}}/>
+              </div>
+            ))}
+            <button onClick={saveBPReview} style={{width:"100%",padding:"10px",borderRadius:5,border:`1px solid ${C.roseMid}`,cursor:"pointer",background:C.roseLight,color:C.rose,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500}}>Save to progress log</button>
+          </div>
+
+          {/* Progress Log */}
+          {(bp.progressLog||[]).length > 0 && (
+            <div style={cardStyle(0.13)}>
+              <SectionHead title="Progress Log" sub="Your trajectory over time"/>
+              {(bp.progressLog||[]).map(l => (
+                <div key={l.week} style={{background:C.ivory,borderRadius:5,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.border}`}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:C.text,margin:0}}>Week of {fmtDate(l.week)}</p>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      {l.energy>0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.rose}}>Energy {l.energy}/5</span>}
+                      {l.baIncome>0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.green}}>${Math.round(l.baIncome)}</span>}
+                      {l.apps>0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.gold}}>{l.apps} apps</span>}
+                      {l.workouts>0 && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.green}}>{l.workouts}/4 workouts</span>}
+                      {l.weight && <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textLight}}>{l.weight} lbs</span>}
+                    </div>
+                  </div>
+                  {l.theMove && <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:13,color:C.textMid,fontStyle:"italic",margin:"0 0 6px"}}>"{l.theMove}"</p>}
+                  {l.wins && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:"0 0 4px"}}><span style={{color:C.textLight,fontSize:10,textTransform:"uppercase",letterSpacing:0.8}}>Moved — </span>{l.wins}</p>}
+                  {l.stalled && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:0}}><span style={{color:C.textLight,fontSize:10,textTransform:"uppercase",letterSpacing:0.8}}>Stalled — </span>{l.stalled}</p>}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Weigh-in */}
+          <div style={cardStyle(0.14)}>
+            <SectionHead title="Weekly Weigh-in" sub="One number, once a week"/>
+            <div style={{display:"flex",alignItems:"center",gap:14}}>
+              <input type="number" value={thisWeekWeigh?.weight||""} onChange={e=>setWeighIn(e.target.value)} placeholder="lbs" style={{...inp,width:90,fontSize:16,textAlign:"center"}}/>
+              {weighDiff !== null && (
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:parseFloat(weighDiff)<=0?C.green:C.gold,margin:0,fontWeight:600}}>
+                  {parseFloat(weighDiff)>0?"+":""}{weighDiff} lbs from last week
+                </p>
+              )}
+            </div>
+          </div>
+        </>)}
 
         {/* ══ TODAY ══ */}
         {tab==="today" && (<>
 
           {historyDay && historyDay !== today_k && (() => {
             const hd = (data.daily||{})[historyDay] || {};
-            const hChecks = dailyChecks.filter(k => hd[k]);
-            const hPct = Math.round((hChecks.length / dailyChecks.length) * 100);
+            const hPct = Math.round((DAILY_SCORE_CHECKS.filter(k=>hd[k]).length / DAILY_SCORE_CHECKS.length)*100);
             const hTeas = hd.teas || [];
             const hFiber = (hd.fiber||[]).reduce((s,e)=>s+e.g,0);
             const hWin = hd.win || "";
             const hMood = hd.mood || 0;
             return (
-              <div style={{...cardStyle(0), border:"2px solid rgba(160,120,200,0.4)", background:"rgba(245,238,255,0.9)"}}>
+              <div style={{...cardStyle(0), border:`1px solid ${C.roseMid}`, background:C.ivory}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                   <div>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#9060c0",textTransform:"uppercase",letterSpacing:1.5,margin:0}}>Viewing Past Day</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,fontWeight:600,color:"#3a2a4a",margin:"2px 0 0"}}>{new Date(historyDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.rose,textTransform:"uppercase",letterSpacing:1.5,margin:0}}>Past day</p>
+                    <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:16,fontWeight:500,color:C.text,margin:"2px 0 0"}}>{new Date(historyDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</p>
                   </div>
-                  <button onClick={()=>setHistoryDay(null)} style={{padding:"5px 12px",borderRadius:20,border:"none",background:"rgba(160,120,200,0.15)",color:"#7050a0",fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer",fontWeight:500}}>✕ Close</button>
+                  <button onClick={()=>setHistoryDay(null)} style={{padding:"5px 12px",borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:12,cursor:"pointer"}}>✕ Close</button>
                 </div>
-                <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
-                  <div style={{background:"rgba(160,120,200,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
-                    <p style={{fontSize:24,fontWeight:600,color:"#7050a0",margin:0,fontFamily:"'DM Sans',sans-serif"}}>{hPct}%</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>completed</p>
+                <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                  <div style={{background:"#fff",borderRadius:5,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center",border:`1px solid ${C.border}`}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:22,color:C.rose,margin:0}}>{hPct}%</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:"2px 0 0"}}>completed</p>
                   </div>
-                  {hMood>0&&<div style={{background:"rgba(160,120,200,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
-                    <p style={{fontSize:20,margin:0}}>{["😔","😐","🙂","😊","🌟"][hMood-1]}</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",margin:"2px 0 0"}}>{["Rough","Low","Okay","Good","Thriving"][hMood-1]}</p>
+                  {hMood>0&&<div style={{background:"#fff",borderRadius:5,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center",border:`1px solid ${C.border}`}}>
+                    <p style={{fontSize:18,margin:0}}>{["😔","😐","🙂","😊","🌟"][hMood-1]}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:"2px 0 0"}}>{["Rough","Low","Okay","Good","Thriving"][hMood-1]}</p>
                   </div>}
-                  {hFiber>0&&<div style={{background:"rgba(120,180,100,0.12)",borderRadius:12,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center"}}>
-                    <p style={{fontSize:18,fontWeight:600,color:"#50a030",margin:0,fontFamily:"'DM Sans',sans-serif"}}>{hFiber.toFixed(0)}g</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#70a050",margin:"2px 0 0"}}>fiber</p>
+                  {hFiber>0&&<div style={{background:"#fff",borderRadius:5,padding:"10px 14px",flex:1,minWidth:80,textAlign:"center",border:`1px solid ${C.border}`}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:20,color:C.green,margin:0}}>{hFiber.toFixed(0)}g</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:"2px 0 0"}}>fiber</p>
                   </div>}
                 </div>
-                {hWin&&<div style={{background:"rgba(240,200,100,0.12)",borderRadius:10,padding:"8px 12px",marginBottom:10,border:"1px solid rgba(220,180,60,0.25)"}}>
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#9a7020",margin:"0 0 2px",fontWeight:600}}>🏆 Win</p>
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#3a2a1a",margin:0}}>{hWin}</p>
+                {hWin&&<div style={{background:"#fff",borderRadius:5,padding:"8px 12px",marginBottom:10,border:`1px solid ${C.border}`}}>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.gold,margin:"0 0 2px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>Win</p>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text,margin:0}}>{hWin}</p>
                 </div>}
-                {hTeas.length>0&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a50",margin:"0 0 8px"}}>🍵 {hTeas.map(t=>t.tea).join(", ")}</p>}
-                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                  {dailyChecks.map(k=>{
-                    const done = !!hd[k];
-                    const labels = {"vitaminIron":"Iron","vitaminD":"Vit D","skincareAM":"AM Skin","skincarePM":"PM Skin","todayTreatment":"Treatment","jobApps":"Job App","tradingStudy":"Trading Study","tradeSession":"Trade","threadsPost":"Threads","socialPost":"Social","journaled":"Journal","sleep7":"Sleep","scalpMassage":"Scalp","lowManip":"Low Manip"};
-                    return <span key={k} style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,padding:"3px 9px",borderRadius:20,background:done?"rgba(120,180,100,0.2)":"rgba(200,180,220,0.15)",color:done?"#3a6a20":"#9070b0",border:`1px solid ${done?"rgba(100,160,80,0.3)":"rgba(180,150,210,0.2)"}`}}>{done?"✓":""} {labels[k]||k}</span>;
-                  })}
-                </div>
+                {hTeas.length>0&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:"0 0 8px"}}>Tea — {hTeas.map(t=>t.tea).join(", ")}</p>}
               </div>
             );
           })()}
 
-          {!historyDay && (
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:10}}>
-              <button onClick={()=>{const d=new Date(today_k+"T12:00:00");d.setDate(d.getDate()-1);setHistoryDay(localDateStr(d));}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9060c0",background:"rgba(200,180,230,0.2)",border:"1px solid rgba(180,150,210,0.3)",borderRadius:20,padding:"5px 14px",cursor:"pointer"}}>‹ View previous day</button>
-            </div>
-          )}
-          {historyDay && historyDay !== today_k && (
-            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:10}}>
-              <button onClick={()=>{const d=new Date(historyDay+"T12:00:00");d.setDate(d.getDate()-1);setHistoryDay(localDateStr(d));}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9060c0",background:"rgba(200,180,230,0.2)",border:"1px solid rgba(180,150,210,0.3)",borderRadius:20,padding:"5px 14px",cursor:"pointer"}}>‹ Earlier</button>
-              <button onClick={()=>{const d=new Date(historyDay+"T12:00:00");d.setDate(d.getDate()+1);const next=localDateStr(d);setHistoryDay(next===today_k?null:next);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9060c0",background:"rgba(200,180,230,0.2)",border:"1px solid rgba(180,150,210,0.3)",borderRadius:20,padding:"5px 14px",cursor:"pointer"}}>Later ›</button>
-            </div>
-          )}
+          <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:10}}>
+            {historyDay && historyDay !== today_k && (
+              <button onClick={()=>{const d=new Date(historyDay+"T12:00:00");d.setDate(d.getDate()-1);setHistoryDay(localDateStr(d));}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,background:C.ivory,border:`1px solid ${C.border}`,borderRadius:4,padding:"5px 14px",cursor:"pointer"}}>‹ Earlier</button>
+            )}
+            {(!historyDay || historyDay === today_k) && (
+              <button onClick={()=>{const d=new Date(today_k+"T12:00:00");d.setDate(d.getDate()-1);setHistoryDay(localDateStr(d));}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,background:C.ivory,border:`1px solid ${C.border}`,borderRadius:4,padding:"5px 14px",cursor:"pointer"}}>‹ View previous day</button>
+            )}
+            {historyDay && historyDay !== today_k && (
+              <button onClick={()=>{const d=new Date(historyDay+"T12:00:00");d.setDate(d.getDate()+1);const next=localDateStr(d);setHistoryDay(next===today_k?null:next);}} style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,background:C.ivory,border:`1px solid ${C.border}`,borderRadius:4,padding:"5px 14px",cursor:"pointer"}}>Later ›</button>
+            )}
+          </div>
 
+          {/* Command Center */}
           <div style={cardStyle(0)}>
-            <SectionHead icon="⚡" title="Command Center" sub="Your to-dos + what's on today"/>
+            <SectionHead title="Command Center" sub="To-dos + what's on today"/>
             {todayCalEvents.length > 0 && (
               <div style={{marginBottom:14}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9060c0",textTransform:"uppercase",letterSpacing:1,margin:"0 0 6px",fontWeight:600}}>📅 On the calendar today</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,textTransform:"uppercase",letterSpacing:1,margin:"0 0 8px",fontWeight:500}}>On the calendar today</p>
                 {todayCalEvents.map(e => (
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,marginBottom:4,background:`${eventTypeColors[e.type]||"#c090d0"}15`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}30`}}>
-                    <div style={{width:7,height:7,borderRadius:"50%",background:eventTypeColors[e.type]||"#c090d0",flexShrink:0}}/>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#2a1a3a",margin:0,flex:1}}>{e.text}</p>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b090c0",textTransform:"capitalize"}}>{e.type}</span>
+                  <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",borderRadius:5,marginBottom:5,background:C.ivory,border:`1px solid ${C.border}`}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:eventTypeColors[e.type]||C.rose,flexShrink:0,marginTop:4}}/>
+                    <div style={{flex:1}}>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text,margin:0}}>{e.text}</p>
+                      {(e.time||e.location) && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textLight,margin:"2px 0 0"}}>{[e.time,e.location].filter(Boolean).join(" · ")}</p>}
+                    </div>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textTransform:"capitalize"}}>{e.type}</span>
                   </div>
                 ))}
               </div>
             )}
             <div style={{display:"flex",gap:6,marginBottom:10}}>
-              <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()} placeholder="Add a to-do…" style={{...inp,flex:1,fontSize:13.5}}/>
+              <input value={newTodo} onChange={e=>setNewTodo(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addTodo()} placeholder="Add a to-do…" style={{...inp,flex:1}}/>
               <div style={{display:"flex",gap:4}}>
-                <button onClick={()=>setTodoType("business")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="business"?"#9060c0":"rgba(235,225,248,0.7)",color:todoType==="business"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Work</button>
-                <button onClick={()=>setTodoType("personal")} style={{padding:"8px 10px",borderRadius:10,border:"none",cursor:"pointer",background:todoType==="personal"?"#e8a090":"rgba(235,225,248,0.7)",color:todoType==="personal"?"#fff":"#9070b0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,transition:"all 0.2s"}}>Personal</button>
-                <button onClick={addTodo} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600}}>+</button>
+                <button onClick={()=>setTodoType("business")} style={{padding:"8px 10px",borderRadius:5,border:`1px solid ${todoType==="business"?C.rose:C.border}`,cursor:"pointer",background:todoType==="business"?C.roseLight:"transparent",color:todoType==="business"?C.rose:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500}}>Work</button>
+                <button onClick={()=>setTodoType("personal")} style={{padding:"8px 10px",borderRadius:5,border:`1px solid ${todoType==="personal"?C.blue:C.border}`,cursor:"pointer",background:todoType==="personal"?"rgba(122,154,184,0.1)":"transparent",color:todoType==="personal"?C.blue:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500}}>Personal</button>
+                <button onClick={addTodo} style={{padding:"8px 14px",borderRadius:5,border:"none",cursor:"pointer",background:C.rose,color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500}}>+</button>
               </div>
             </div>
             {activeTodos.length === 0
-              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"rgba(140,110,160,0.45)",fontStyle:"italic"}}>Nothing on your list — add something above</p>
+              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textFaint,fontStyle:"italic"}}>Nothing on your list — add something above</p>
               : (<>
                 {activeTodos.filter(t=>!t.done).map(t => {
                   const isWork = t.type==="business";
-                  const color = isWork ? "#9060c0" : "#e8a090";
+                  const color = isWork ? C.rose : C.blue;
                   return (
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 8px",borderRadius:10,marginBottom:4,background:`${color}0e`,transition:"background 0.15s",cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
-                      <div style={{width:20,height:20,borderRadius:6,flexShrink:0,border:`2px solid ${color}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s"}}/>
-                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:"#2a1a3a",flex:1,margin:0,lineHeight:1.4}}>{t.text}</p>
-                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,fontWeight:600,color:"#fff",background:color,padding:"2px 8px",borderRadius:20,textTransform:"uppercase",letterSpacing:0.5,flexShrink:0}}>{isWork?"Work":"Personal"}</span>
-                      <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:"rgba(180,150,200,0.4)",fontSize:16,padding:2,lineHeight:1}}>×</span>
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.border}`,cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
+                      <div style={{width:18,height:18,borderRadius:3,flexShrink:0,border:`1.5px solid ${color}`,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}/>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:C.text,flex:1,margin:0,lineHeight:1.4}}>{t.text}</p>
+                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,fontWeight:500,color:color,textTransform:"uppercase",letterSpacing:0.5,flexShrink:0}}>{isWork?"Work":"Personal"}</span>
+                      <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:C.textFaint,fontSize:16,padding:2,lineHeight:1}}>×</span>
                     </div>
                   );
                 })}
                 {activeTodos.filter(t=>t.done).length>0&&(<>
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"rgba(150,120,180,0.4)",textTransform:"uppercase",letterSpacing:1,margin:"10px 0 5px"}}>Done today</p>
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textTransform:"uppercase",letterSpacing:1,margin:"12px 0 5px"}}>Done today</p>
                   {activeTodos.filter(t=>t.done).map(t => {
-                    const color = t.type==="business" ? "#9060c0" : "#e8a090";
+                    const color = t.type==="business" ? C.rose : C.blue;
                     return (
-                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 8px",borderRadius:10,marginBottom:3,opacity:0.5,cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
-                        <div style={{width:20,height:20,borderRadius:6,flexShrink:0,border:`2px solid ${color}`,background:color,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          <span style={{color:"#fff",fontSize:10,fontWeight:800}}>✓</span>
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 0",borderBottom:`1px solid ${C.border}`,opacity:0.45,cursor:"pointer"}} onClick={()=>toggleTodoItem(t.id)}>
+                        <div style={{width:18,height:18,borderRadius:3,flexShrink:0,border:`1.5px solid ${color}`,background:color,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <span style={{color:"#fff",fontSize:9,fontWeight:800}}>✓</span>
                         </div>
-                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#7a6a8a",flex:1,margin:0,textDecoration:"line-through"}}>{t.text}</p>
-                        <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:"rgba(180,150,200,0.3)",fontSize:16,padding:2}}>×</span>
+                        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textMid,flex:1,margin:0,textDecoration:"line-through"}}>{t.text}</p>
+                        <span onClick={e=>{e.stopPropagation();removeTodoItem(t.id)}} style={{cursor:"pointer",color:C.textFaint,fontSize:16,padding:2}}>×</span>
                       </div>
                     );
                   })}
@@ -541,51 +1015,55 @@ export default function Dashboard() {
             }
           </div>
 
+          {/* Priority */}
           <div style={cardStyle(0.04)}>
-            <SectionHead icon="🎯" title="Today's One Priority" sub="The single most important move you make today" />
-            <input value={priority} onChange={e=>setTd("priority",e.target.value)} placeholder="What must happen today no matter what?" style={{...inp,fontSize:14,fontWeight:500}}/>
-            {priority && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#9060c0",marginTop:6,fontStyle:"italic"}}>✦ Stay locked in.</p>}
+            <SectionHead title="Today's One Priority" sub="The single most important move you make today"/>
+            <input value={priority} onChange={e=>setTd("priority",e.target.value)} placeholder="What must happen today no matter what?" style={{...inp,fontSize:14}}/>
           </div>
 
-          <div style={cardStyle(0.04)}>
-            <SectionHead icon="🌡️" title="Mood & Energy" sub="Rate yourself honestly — patterns reveal truth over time" />
-            <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+          {/* Mood */}
+          <div style={cardStyle(0.06)}>
+            <SectionHead title="Mood & Energy" sub="Rate honestly — patterns reveal truth over time"/>
+            <div style={{display:"flex",gap:6,justifyContent:"center"}}>
               {[1,2,3,4,5].map(n=>{
                 const labels=["Rough","Low","Okay","Good","Thriving"];
-                const colors=["#e08080","#e8a870","#e8d060","#90c870","#60c8a0"];
+                const colors=["#C07070","#C09060","#A0A040","#70A860","#50A890"];
                 const active=mood===n;
                 return (
-                  <div key={n} onClick={()=>setTd("mood",n)} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRadius:12,cursor:"pointer",background:active?`${colors[n-1]}25`:"rgba(240,232,250,0.4)",border:`2px solid ${active?colors[n-1]:"transparent"}`,transition:"all 0.2s"}}>
-                    <p style={{fontSize:20,margin:"0 0 3px"}}>{["😔","😐","🙂","😊","🌟"][n-1]}</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,color:active?colors[n-1]:"#a080b0",fontWeight:active?600:400,margin:0}}>{labels[n-1]}</p>
+                  <div key={n} onClick={()=>setTd("mood",n)} style={{flex:1,textAlign:"center",padding:"10px 4px",borderRadius:5,cursor:"pointer",background:active?`${colors[n-1]}18`:C.ivory,border:`1px solid ${active?colors[n-1]:C.border}`,transition:"all 0.15s"}}>
+                    <p style={{fontSize:18,margin:"0 0 4px"}}>{["😔","😐","🙂","😊","🌟"][n-1]}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,color:active?colors[n-1]:C.textLight,fontWeight:active?600:400,margin:0}}>{labels[n-1]}</p>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div style={cardStyle(0.07)}>
-            <SectionHead icon="🏆" title="Win of the Day" sub="One thing you did, built, closed, or showed up for" />
-            <input value={win} onChange={e=>setTd("win",e.target.value)} placeholder="Today I…" style={{...inp,fontSize:13.5}}/>
+          {/* Win */}
+          <div style={cardStyle(0.08)}>
+            <SectionHead title="Win of the Day" sub="One thing you did, built, closed, or showed up for"/>
+            <input value={win} onChange={e=>{setTd("win",e.target.value);if(e.target.value.length>5)addWin(e.target.value,`daily-win-${today_k}`);}} placeholder="Today I…" style={{...inp,fontSize:13.5}}/>
           </div>
 
-          <div style={cardStyle(0.09)}>
-            <SectionHead icon="💊" title="Vitamins" sub="Iron between meals · away from tea · D with a fatty meal" />
-            <Row label="Iron supplement (between meals)" k="vitaminIron" note="Space 1hr before/after tea for best absorption" color="#e08090"/>
-            <Row label="Vitamin D" k="vitaminD" note="Take with a meal containing healthy fat" color="#f0b040"/>
+          {/* Vitamins */}
+          <div style={cardStyle(0.10)}>
+            <SectionHead title="Vitamins" sub="Iron between meals · away from tea · D with a fatty meal"/>
+            <Row label="Iron supplement (between meals)" k="vitaminIron" note="Space 1hr before/after tea for best absorption" color={C.rose}/>
+            <Row label="Vitamin D" k="vitaminD" note="Take with a meal containing healthy fat" color={C.gold}/>
           </div>
 
-          <div style={cardStyle(0.11)}>
-            <SectionHead icon="🍵" title="Daily Tea Log" sub="Log every cup — track tannin timing around iron" />
+          {/* Tea */}
+          <div style={cardStyle(0.12)}>
+            <SectionHead title="Daily Tea Log" sub="Track tannin timing around iron"/>
             <div style={{position:"relative"}} ref={teaRef}>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <input value={teaInput} onChange={e=>setTeaInput(e.target.value)} onFocus={()=>setShowTeaMenu(true)} placeholder="Search or select tea…" style={{...inp,flex:1}}/>
-                <button onClick={()=>{if(teaInput.trim())addTea(teaInput.trim());}} style={{padding:"8px 14px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890b8,#9860b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,flexShrink:0}}>+ Log</button>
+                <button onClick={()=>{if(teaInput.trim())addTea(teaInput.trim());}} style={{padding:"8px 14px",borderRadius:5,border:`1px solid ${C.border}`,cursor:"pointer",background:C.ivory,color:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500,flexShrink:0}}>+ Log</button>
               </div>
               {showTeaMenu && (
-                <div style={{position:"absolute",top:"100%",left:0,right:56,zIndex:50,background:"rgba(255,250,255,0.98)",borderRadius:12,boxShadow:"0 8px 28px rgba(140,100,180,0.18)",border:"1px solid rgba(200,180,225,0.4)",maxHeight:200,overflowY:"auto"}}>
+                <div style={{position:"absolute",top:"100%",left:0,right:70,zIndex:50,background:"#FFFFFF",borderRadius:6,boxShadow:"0 4px 20px rgba(0,0,0,0.08)",border:`1px solid ${C.border}`,maxHeight:200,overflowY:"auto"}}>
                   {TEAS.filter(t=>t.toLowerCase().includes(teaInput.toLowerCase())).map(t=>(
-                    <div key={t} onClick={()=>addTea(t)} className="rhov" style={{padding:"9px 14px",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#4a2a6a",cursor:"pointer",borderBottom:"1px solid rgba(200,180,220,0.12)"}}>{t}</div>
+                    <div key={t} onClick={()=>addTea(t)} className="row-hover" style={{padding:"9px 14px",fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text,cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>{t}</div>
                   ))}
                 </div>
               )}
@@ -593,45 +1071,46 @@ export default function Dashboard() {
             {teaLog.length>0 ? (
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                 {teaLog.map((t,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 10px 4px 12px",background:"rgba(140,190,160,0.18)",borderRadius:20,border:"1px solid rgba(100,160,120,0.25)"}}>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#2a5a3a"}}>🍵 {t.tea}</span>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#6a9a70"}}>{t.time}</span>
-                    <span onClick={()=>removeTea(i)} style={{cursor:"pointer",color:"#c08090",fontSize:14,lineHeight:1}}>×</span>
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 10px 4px 12px",background:C.ivory,borderRadius:4,border:`1px solid ${C.border}`}}>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid}}>{t.tea}</span>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight}}>{t.time}</span>
+                    <span onClick={()=>removeTea(i)} style={{cursor:"pointer",color:C.textFaint,fontSize:14,lineHeight:1}}>×</span>
                   </div>
                 ))}
               </div>
-            ) : <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"rgba(140,110,160,0.45)",fontStyle:"italic"}}>No teas logged yet today</p>}
+            ) : <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textFaint,fontStyle:"italic"}}>No teas logged yet today</p>}
           </div>
 
-          <div style={cardStyle(0.13)}>
+          {/* Fiber */}
+          <div style={cardStyle(0.14)}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-              <SectionHead icon="🌱" title="Fiber Intake" sub="Goal: 25g+ daily — hormone balance & gut health"/>
+              <SectionHead title="Fiber Intake" sub="Goal: 25g+ daily — hormone balance & gut health"/>
               <div style={{textAlign:"right",flexShrink:0}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:24,fontWeight:600,color:fiberTotal>=25?"#50a840":"#c07030",margin:0,lineHeight:1}}>{fiberTotal.toFixed(1)}g</p>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080b0",margin:"2px 0 0"}}>of 25g</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:26,fontWeight:500,color:fiberTotal>=25?C.green:C.gold,margin:0,lineHeight:1}}>{fiberTotal.toFixed(1)}g</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:"2px 0 0"}}>of 25g</p>
               </div>
             </div>
-            <div style={{height:6,borderRadius:3,background:"rgba(200,180,220,0.2)",overflow:"hidden",marginBottom:10}}>
-              <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:"linear-gradient(90deg,#90c860,#50a840)",borderRadius:3,transition:"width 0.4s ease"}}/>
+            <div style={{height:3,borderRadius:2,background:C.border,overflow:"hidden",marginBottom:12}}>
+              <div style={{height:"100%",width:`${Math.min((fiberTotal/25)*100,100)}%`,background:fiberTotal>=25?C.green:C.gold,borderRadius:2,transition:"width 0.4s ease"}}/>
             </div>
             <div ref={fiberRef}>
-              <button onClick={()=>setShowFiberMenu(v=>!v)} style={{width:"100%",padding:"8px",borderRadius:10,border:"1px dashed rgba(140,180,100,0.5)",background:"rgba(160,210,120,0.1)",color:"#4a7a30",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",fontWeight:500}}>
-                {showFiberMenu ? "▲ Close" : "+ Add food"}
+              <button onClick={()=>setShowFiberMenu(v=>!v)} style={{width:"100%",padding:"8px",borderRadius:5,border:`1px dashed ${C.borderDark}`,background:C.ivory,color:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",fontWeight:400}}>
+                {showFiberMenu ? "Close" : "+ Add food"}
               </button>
               {showFiberMenu && (
-                <div style={{marginTop:6,borderRadius:12,border:"1px solid rgba(160,200,120,0.3)",overflow:"hidden",background:"rgba(255,252,255,0.98)"}}>
+                <div style={{marginTop:6,borderRadius:5,border:`1px solid ${C.border}`,overflow:"hidden",background:"#FFFFFF"}}>
                   {FIBER_FOODS.filter(f=>f.name!=="Custom").map(f=>(
-                    <div key={f.name} onClick={()=>addFiber(f.name,f.g)} className="rhov" style={{display:"flex",justifyContent:"space-between",padding:"11px 14px",cursor:"pointer",borderBottom:"1px solid rgba(160,200,120,0.12)"}}>
-                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#3a5a20"}}>{f.name}</span>
-                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,color:"#5a8a30"}}>{f.g}g</span>
+                    <div key={f.name} onClick={()=>addFiber(f.name,f.g)} className="row-hover" style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${C.border}`}}>
+                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text}}>{f.name}</span>
+                      <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:600,color:C.green}}>{f.g}g</span>
                     </div>
                   ))}
-                  <div style={{padding:"10px 14px",borderTop:"1px solid rgba(160,200,120,0.2)",background:"rgba(240,250,235,0.5)"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#5a7a40",margin:"0 0 8px",fontWeight:600}}>Custom food</p>
+                  <div style={{padding:"10px 14px",borderTop:`1px solid ${C.border}`,background:C.ivory}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textMid,margin:"0 0 8px",fontWeight:600}}>Custom</p>
                     <input value={fiberCustomName} onChange={e=>setFiberCustomName(e.target.value)} placeholder="Food name" style={{...inp,marginBottom:6,fontSize:13}}/>
                     <div style={{display:"flex",gap:6}}>
-                      <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="Fiber grams (e.g. 4)" type="number" style={{...inp,flex:1,fontSize:13}}/>
-                      <button onClick={(e)=>{e.stopPropagation();if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:"#70b040",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",flexShrink:0,fontWeight:500}}>Add</button>
+                      <input value={fiberCustomG} onChange={e=>setFiberCustomG(e.target.value)} placeholder="Fiber grams" type="number" style={{...inp,flex:1,fontSize:13}}/>
+                      <button onClick={()=>{if(fiberCustomG&&fiberCustomName)addFiber(fiberCustomName,fiberCustomG);}} style={{padding:"8px 16px",borderRadius:5,border:"none",background:C.green,color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,cursor:"pointer",flexShrink:0,fontWeight:500}}>Add</button>
                     </div>
                   </div>
                 </div>
@@ -640,128 +1119,101 @@ export default function Dashboard() {
             {fiberLog.length>0 && (
               <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:6}}>
                 {fiberLog.map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px 3px 11px",background:"rgba(140,200,100,0.15)",borderRadius:20,border:"1px solid rgba(110,170,80,0.25)"}}>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#3a5a20"}}>{e.name} · <strong>{e.g}g</strong></span>
-                    <span onClick={()=>removeFiber(e.id)} style={{cursor:"pointer",color:"#c08090",fontSize:13,lineHeight:1}}>×</span>
+                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px 3px 11px",background:C.ivory,borderRadius:4,border:`1px solid ${C.border}`}}>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textMid}}>{e.name} · <strong>{e.g}g</strong></span>
+                    <span onClick={()=>removeFiber(e.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:13,lineHeight:1}}>×</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={cardStyle(0.15)}>
-            <SectionHead icon="✨" title="Skincare" sub={`${todayDOW}: ${todaySkincare.treatment}`}/>
-            <div style={{background:`${todaySkincare.color}1e`,borderRadius:10,padding:"8px 12px",marginBottom:10,borderLeft:`3px solid ${todaySkincare.color}`}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:"#4a2a6a",margin:0,fontWeight:500}}>
+          {/* Skincare */}
+          <div style={cardStyle(0.16)}>
+            <SectionHead title="Skincare" sub={`${todayDOW}: ${todaySkincare.treatment}`}/>
+            <div style={{background:C.ivory,borderRadius:5,padding:"8px 12px",marginBottom:12,borderLeft:`2px solid ${C.rose}`}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textMid,margin:0}}>
                 {todaySkincare.type==="acid"?`PM: Apply ${todaySkincare.treatment} after cleanse, before moisturizer`:"Deep hydration — hyaluronic acid, barrier repair, no actives tonight"}
               </p>
             </div>
-            <Row label="AM: Cleanse → moisturize → SPF 30+" k="skincareAM" note="SPF daily is your #1 anti-aging investment" color="#e0a0c0"/>
-            <Row label={`PM: ${todaySkincare.treatment} applied`} k="todayTreatment" note={todaySkincare.type==="acid"?"After cleansing, before moisturizer":"Hyaluronic acid + rich moisturizer"} color={todaySkincare.color}/>
-            <Row label="PM: Moisturize & seal" k="skincarePM" note="Lock in treatment — face oil optional on top" color="#e0a0c0"/>
-            <Divider/>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a080b0",fontStyle:"italic",margin:"4px 0 0"}}>📅 Sun Mandelic · Mon Azelaic · Tue Hydration · Wed Azelaic · Thu Mandelic · Fri Azelaic · Sat Hydration</p>
+            <Row label="AM: Cleanse → moisturize → SPF 30+" k="skincareAM" note="SPF daily is your #1 anti-aging investment" color={C.rose}/>
+            <Row label={`PM: ${todaySkincare.treatment} applied`} k="todayTreatment" note={todaySkincare.type==="acid"?"After cleansing, before moisturizer":"Hyaluronic acid + rich moisturizer"} color={C.rose}/>
+            <Row label="PM: Moisturize & seal" k="skincarePM" note="Lock in treatment — face oil optional on top" color={C.rose}/>
+            <div style={{height:1,background:C.border,margin:"10px 0 6px"}}/>
+            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:C.textFaint,fontStyle:"italic",margin:0}}>Sun Mandelic · Mon Azelaic · Tue Hydration · Wed Azelaic · Thu Mandelic · Fri Azelaic · Sat Hydration</p>
           </div>
 
-          <div style={cardStyle(0.17)}>
-            <SectionHead icon="🪷" title="Hair Health" sub="Rice treatment every 2 weeks · scalp care daily"/>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"rgba(160,200,140,0.14)",borderRadius:12,padding:"10px 14px",marginBottom:10,border:"1px solid rgba(110,170,90,0.22)"}}>
+          {/* Wellness */}
+          <div style={cardStyle(0.18)}>
+            <SectionHead title="Wellness & Mind" sub="Sleep · reflection · connection"/>
+            <Row label="Slept 7–9 hours" k="sleep7" note="Skin repair, hormone reset, and hair growth all peak during sleep" color={C.purple}/>
+            <Row label="Journaled or reflected (5+ min)" k="journaled" note="The most important relationship you have is with yourself" color={C.purple}/>
+            <Row label="Meaningful social connection today" k="social" note="1–3 hrs/day of real connection is the science-backed sweet spot" color={C.purple}/>
+          </div>
+
+          {/* Hair — rice water tracker */}
+          <div style={cardStyle(0.20)}>
+            <SectionHead title="Hair Health" sub="Rice treatment every 2 weeks"/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:C.ivory,borderRadius:5,padding:"10px 14px",border:`1px solid ${C.border}`}}>
               <div>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:600,color:"#2a4a18",margin:0}}>🌾 Rice Water Treatment</p>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#5a7a48",margin:"2px 0 0"}}>Last: {lastRice} · Next: {nextRice}{riceCountdown===0?" ← TODAY!":riceCountdown>0?` (${riceCountdown}d)`:` (${Math.abs(riceCountdown)}d overdue)`}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:500,color:C.text,margin:0}}>Rice Water Treatment</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textMid,margin:"2px 0 0"}}>Last: {lastRice} · Next: {nextRice}{riceCountdown===0?" — today":riceCountdown>0?` (${riceCountdown}d)`:` (${Math.abs(riceCountdown)}d overdue)`}</p>
               </div>
               {riceCountdown<=0&&(
-                <button onClick={markRiceDone} style={{padding:"7px 14px",borderRadius:10,border:"none",cursor:"pointer",background:data.lastRiceTreatment===today_k?"rgba(90,150,70,0.25)":"linear-gradient(135deg,#a8d088,#68b048)",color:data.lastRiceTreatment===today_k?"#3a6a20":"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500}}>
-                  {data.lastRiceTreatment===today_k?"✓ Done!":"Mark done"}
+                <button onClick={markRiceDone} style={{padding:"7px 14px",borderRadius:4,border:`1px solid ${C.border}`,cursor:"pointer",background:data.lastRiceTreatment===today_k?C.ivory:"#FFFFFF",color:data.lastRiceTreatment===today_k?C.green:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:12,fontWeight:500}}>
+                  {data.lastRiceTreatment===today_k?"✓ Done":"Mark done"}
                 </button>
               )}
             </div>
-            <Row label="Scalp massage with hair oil" k="scalpMassage" note="4 min daily shown to increase shaft thickness (Koyama et al.)" color="#c0a0e0"/>
-            <Row label="Low-manipulation style today" k="lowManip" note="Protective styles reduce mechanical breakage" color="#c0a0e0"/>
-          </div>
-
-          <div style={cardStyle(0.19)}>
-            <SectionHead icon="💰" title="Financial Goals" sub="Job apps · trading · content"/>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a080b0",textTransform:"uppercase",letterSpacing:1,margin:"0 0 4px"}}>Job Search</p>
-            <Row label="Applied for at least 1 job today" k="jobApps" note="5+ quality apps/week = ~1 interview every 2 weeks" color="#e89060"/>
-            <Divider/>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a080b0",textTransform:"uppercase",letterSpacing:1,margin:"4px 0 4px"}}>Trading</p>
-            <Row label="Trading study session (30+ min)" k="tradingStudy" note="Goal: learn by end of month — daily is the path" color="#60b0c0"/>
-            <Row label="Paper trade or market review" k="tradeSession" note="Log it in the Trading tab" color="#60b0c0"/>
-            <Divider/>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#a080b0",textTransform:"uppercase",letterSpacing:1,margin:"4px 0 4px"}}>Content</p>
-            <Row label={`Threads post${isMandatoryThreadsDay?" (📌 REQUIRED — "+todayDOW+")":""}`} k="threadsPost" note={`Schedule: Tue · Thu · Sat${isMandatoryThreadsDay?" ← you're on!":""}`} color={isMandatoryThreadsDay?"#c030a0":"#b090d0"}/>
-            <Row label="Social media post (1x this week)" k="socialPost" note="Hair, wellness, or business content — any platform" color="#c030a0"/>
-          </div>
-
-          <div style={cardStyle(0.21)}>
-            <SectionHead icon="🕊️" title="Wellness & Mind" sub="Sleep · reflection · social connection"/>
-            <Row label="Slept 7–9 hours" k="sleep7" note="Skin repair, hormone reset, and hair growth all peak during sleep" color="#9090e0"/>
-            <Row label="Journaled or reflected (5+ min)" k="journaled" note="The most important relationship you have is with yourself" color="#9090e0"/>
-            <Row label="Meaningful social connection today" k="social" note="1–3 hrs/day of real connection is the science-backed sweet spot" color="#9090e0"/>
           </div>
         </>)}
 
         {/* ══ WEEKLY ══ */}
         {tab==="weekly" && (<>
-          <p style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#9070b0",marginBottom:14,fontStyle:"italic"}}>Week of {week_k}</p>
+          <p style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textLight,marginBottom:14,fontStyle:"italic"}}>Week of {week_k}</p>
           <div style={cardStyle(0)}>
-            <SectionHead icon="🎯" title="Movement & Learning"/>
+            <SectionHead title="Movement & Learning"/>
             {Object.entries(WEEKLY).map(([k,v])=><CounterRow key={k} k={k} {...v}/>)}
           </div>
-          <div style={cardStyle(0.06)}>
-            <SectionHead icon="🧵" title="Content Schedule" sub="Threads: Tue · Thu · Sat · Social: 1x/week"/>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:8}}>
+          <div style={cardStyle(0.05)}>
+            <SectionHead title="Skincare Week"/>
+            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
               {DOW.map(d=>{
-                const req=THREADS_DAYS.includes(d); const isT=d===todayDOW;
+                const sc=SKINCARE_SCHEDULE[d]; const isT=d===todayDOW;
                 return (
-                  <div key={d} style={{flex:1,minWidth:50,textAlign:"center",padding:"9px 4px",borderRadius:12,background:req?(isT?"linear-gradient(135deg,#d040a0,#9030b8)":"rgba(190,70,150,0.14)"):"rgba(235,228,248,0.45)",border:isT?`2px solid ${req?"#d040a0":"#b0a0d0"}`:"1px solid rgba(200,180,225,0.3)"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,textTransform:"uppercase",letterSpacing:0.8,color:req?(isT?"#fff":"#b030a0"):"#b0a0c0",margin:"0 0 3px",fontWeight:600}}>{d.slice(0,3)}</p>
-                    <p style={{fontSize:15,margin:0}}>{req?"📝":"—"}</p>
+                  <div key={d} style={{flex:1,minWidth:60,textAlign:"center",padding:"9px 4px",borderRadius:5,background:isT?C.roseLight:C.ivory,border:`1px solid ${isT?C.roseMid:C.border}`}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,textTransform:"uppercase",letterSpacing:0.8,color:isT?C.rose:C.textLight,margin:"0 0 4px",fontWeight:600}}>{d.slice(0,3)}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:isT?C.rose:C.textMid,margin:0,fontWeight:isT?500:400,lineHeight:1.3}}>{sc.treatment.replace(" Acid","").replace("Hydration Day","Hydrate")}</p>
                   </div>
                 );
               })}
             </div>
           </div>
           <div style={cardStyle(0.09)}>
-            <SectionHead icon="✨" title="Skincare Week"/>
-            <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-              {DOW.map(d=>{
-                const sc=SKINCARE_SCHEDULE[d]; const isT=d===todayDOW;
-                return (
-                  <div key={d} style={{flex:1,minWidth:60,textAlign:"center",padding:"9px 4px",borderRadius:12,background:isT?`${sc.color}38`:`${sc.color}16`,border:isT?`2px solid ${sc.color}`:`1px solid ${sc.color}35`}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,textTransform:"uppercase",letterSpacing:0.8,color:"#7050a0",margin:"0 0 3px",fontWeight:600}}>{d.slice(0,3)}</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#3a2a4a",margin:0,fontWeight:isT?600:400,lineHeight:1.3}}>{sc.treatment.replace(" Acid","").replace("Hydration Day","Hydrate")}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div style={cardStyle(0.12)}>
-            <SectionHead icon="🌙" title="Sunday Reset" sub={isSunday?"Tonight is your reset — take 10 minutes":"Your weekly close ritual — available every Sunday"}/>
+            <SectionHead title="Sunday Reset" sub={isSunday?"Tonight is your reset — take 10 minutes":"Your weekly close ritual"}/>
             {[
               {field:"worked",label:"What worked this week?",ph:"Wins, breakthroughs, moments of alignment…"},
               {field:"didnt",label:"What didn't work?",ph:"Be honest — no judgment, just data…"},
               {field:"carrying",label:"What are you carrying into next week?",ph:"Unfinished things, energy, intentions…"},
               {field:"intention",label:"One intention for next week",ph:"How do you want to show up?"},
             ].map(({field,label,ph})=>(
-              <div key={field} style={{marginBottom:10}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#7050a0",fontWeight:500,margin:"0 0 5px"}}>{label}</p>
-                <textarea value={sundayReset[field]} onChange={e=>setSundayReset(field,e.target.value)} placeholder={ph} style={{...inp,minHeight:60,resize:"vertical",lineHeight:1.6}}/>
+              <div key={field} style={{marginBottom:12}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,fontWeight:500,margin:"0 0 5px"}}>{label}</p>
+                <textarea value={sundayReset[field]} onChange={e=>setSundayReset(field,e.target.value)} placeholder={ph} style={{...inp,minHeight:60,lineHeight:1.6}}/>
               </div>
             ))}
           </div>
-          <div style={cardStyle(0.15)}>
-            <SectionHead icon="💵" title="Weekly Money Review" sub="10 minutes every Sunday — women who build wealth do this religiously"/>
+          <div style={cardStyle(0.12)}>
+            <SectionHead title="Weekly Money Review" sub="10 minutes every Sunday"/>
             {[
               {field:"income",label:"What came in?",ph:"Clients, job leads, sales…"},
               {field:"spent",label:"What went out?",ph:"Expenses, bills, purchases…"},
               {field:"gap",label:"What's the gap?",ph:"Where are you vs where you need to be?"},
               {field:"plan",label:"One financial move next week",ph:"What are you committing to?"},
             ].map(({field,label,ph})=>(
-              <div key={field} style={{marginBottom:10}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#7050a0",fontWeight:500,margin:"0 0 5px"}}>{label}</p>
-                <textarea value={moneyReview[field]} onChange={e=>setMoneyReview(field,e.target.value)} placeholder={ph} style={{...inp,minHeight:54,resize:"vertical",lineHeight:1.6}}/>
+              <div key={field} style={{marginBottom:12}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,fontWeight:500,margin:"0 0 5px"}}>{label}</p>
+                <textarea value={moneyReview[field]} onChange={e=>setMoneyReview(field,e.target.value)} placeholder={ph} style={{...inp,minHeight:54,lineHeight:1.6}}/>
               </div>
             ))}
           </div>
@@ -770,39 +1222,39 @@ export default function Dashboard() {
         {/* ══ FINANCE ══ */}
         {tab==="finance" && (<>
           <div style={cardStyle(0)}>
-            <SectionHead icon="💵" title="Income" sub={today.toLocaleString("default",{month:"long",year:"numeric"})}/>
-            <div style={{background:"linear-gradient(135deg,rgba(180,230,150,0.25),rgba(140,210,110,0.18))",borderRadius:14,padding:"14px",marginBottom:14,border:"1px solid rgba(110,180,80,0.28)",textAlign:"center"}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#3a6a20",letterSpacing:1.8,textTransform:"uppercase",margin:0}}>This Month</p>
-              <p style={{fontSize:40,fontWeight:400,color:"#1a4a0a",margin:"4px 0 0",fontStyle:"italic"}}>${totalIncome.toFixed(2)}</p>
+            <SectionHead title="Income" sub={today.toLocaleString("default",{month:"long",year:"numeric"})}/>
+            <div style={{background:C.ivory,borderRadius:5,padding:"16px",marginBottom:16,border:`1px solid ${C.border}`,textAlign:"center"}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,letterSpacing:2,textTransform:"uppercase",margin:0}}>This Month</p>
+              <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:42,fontWeight:500,color:C.green,margin:"4px 0 0",fontStyle:"italic"}}>${totalIncome.toFixed(2)}</p>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:8}}>
               <input value={incomeAmt} onChange={e=>setIncomeAmt(e.target.value)} placeholder="Amount $" type="number" style={{...inp,flex:"0 0 110px"}}/>
               <input value={incomeNote} onChange={e=>setIncomeNote(e.target.value)} placeholder="Source (client, job, sale…)" style={{...inp,flex:1}}/>
             </div>
-            <button onClick={addIncome} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#98d068,#60a838)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add Income</button>
+            <button onClick={addIncome} style={{width:"100%",padding:"10px",borderRadius:5,border:`1px solid ${C.green}`,cursor:"pointer",background:"rgba(123,166,138,0.1)",color:C.green,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add Income</button>
             {monthIncome.length===0
-              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No income logged yet this month</p>
+              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textFaint,fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No income logged yet this month</p>
               : [...monthIncome].reverse().map(e=>(
-                <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,background:"rgba(140,210,100,0.1)",marginBottom:6,border:"1px solid rgba(110,180,80,0.18)"}}>
+                <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:5,background:C.ivory,marginBottom:6,border:`1px solid ${C.border}`}}>
                   <div style={{flex:1}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:"#1a4a0a",margin:0,fontWeight:600}}>${e.amt.toFixed(2)}</p>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#4a7a30",margin:"2px 0 0"}}>{e.note||"—"} · {e.date}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:C.text,margin:0,fontWeight:600}}>${e.amt.toFixed(2)}</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textMid,margin:"2px 0 0"}}>{e.note||"—"} · {e.date}</p>
                   </div>
-                  <span onClick={()=>removeIncome(e.id)} style={{cursor:"pointer",color:"#c08090",fontSize:17,padding:4}}>×</span>
+                  <span onClick={()=>removeIncome(e.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:17,padding:4}}>×</span>
                 </div>
               ))
             }
           </div>
           <div style={cardStyle(0.05)}>
-            <SectionHead icon="📈" title="Trading" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · Goal: learn by end of month`}/>
+            <SectionHead title="Trading" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · Goal: consistent on paper first`}/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-              <div style={{background:totalPL>=0?"rgba(140,210,100,0.18)":"rgba(220,120,120,0.15)",borderRadius:12,padding:"12px 14px",border:`1px solid ${totalPL>=0?"rgba(100,180,70,0.28)":"rgba(200,80,80,0.25)"}`}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#7a5a9a",letterSpacing:1.2,textTransform:"uppercase",margin:0}}>Live P&L</p>
-                <p style={{fontSize:26,fontWeight:400,color:totalPL>=0?"#1a5a0a":"#7a1a1a",margin:"4px 0 0"}}>{totalPL>=0?"+":""}${totalPL.toFixed(2)}</p>
+              <div style={{background:totalPL>=0?"rgba(123,166,138,0.1)":"rgba(190,100,100,0.08)",borderRadius:5,padding:"12px 14px",border:`1px solid ${totalPL>=0?"rgba(123,166,138,0.3)":"rgba(190,100,100,0.25)"}`}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,letterSpacing:1.2,textTransform:"uppercase",margin:0}}>Live P&L</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:28,fontWeight:500,color:totalPL>=0?C.green:"#B05050",margin:"4px 0 0"}}>{totalPL>=0?"+":""}${totalPL.toFixed(2)}</p>
               </div>
-              <div style={{background:"rgba(160,140,220,0.14)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(130,110,200,0.22)"}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#7a5a9a",letterSpacing:1.2,textTransform:"uppercase",margin:0}}>Paper P&L</p>
-                <p style={{fontSize:26,fontWeight:400,color:totalPaper>=0?"#3a2a8a":"#7a1a5a",margin:"4px 0 0"}}>{totalPaper>=0?"+":""}${totalPaper.toFixed(2)}</p>
+              <div style={{background:C.ivory,borderRadius:5,padding:"12px 14px",border:`1px solid ${C.border}`}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,letterSpacing:1.2,textTransform:"uppercase",margin:0}}>Paper P&L</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:28,fontWeight:500,color:totalPaper>=0?C.purple:"#B05050",margin:"4px 0 0"}}>{totalPaper>=0?"+":""}${totalPaper.toFixed(2)}</p>
               </div>
             </div>
             <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
@@ -813,27 +1265,27 @@ export default function Dashboard() {
               </select>
             </div>
             <input value={tradeNote} onChange={e=>setTradeNote(e.target.value)} placeholder="Ticker, strategy, lesson learned…" style={{...inp,marginBottom:8}}/>
-            <button onClick={addTrade} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#7888d8,#4858b8)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Log Trade</button>
+            <button onClick={addTrade} style={{width:"100%",padding:"10px",borderRadius:5,border:`1px solid ${C.blue}`,cursor:"pointer",background:"rgba(122,154,184,0.1)",color:C.blue,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Log Trade</button>
             {monthTrades.length===0
-              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No trades yet — start with paper trades while you learn</p>
+              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textFaint,fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No trades yet — start with paper trades while you learn</p>
               : [...monthTrades].reverse().map(e=>{
                 const pos=e.amt>=0;
                 return (
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:6,background:e.type==="paper"?"rgba(130,110,210,0.08)":(pos?"rgba(120,200,90,0.1)":"rgba(210,100,100,0.1)"),border:`1px solid ${e.type==="paper"?"rgba(130,110,200,0.18)":(pos?"rgba(90,170,60,0.22)":"rgba(190,70,70,0.22)")}`}}>
+                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:5,marginBottom:6,background:C.ivory,border:`1px solid ${C.border}`}}>
                     <div style={{flex:1}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,fontWeight:600,color:e.type==="paper"?"#4030a0":(pos?"#1a5a0a":"#7a1a1a")}}>{pos?"+":""}${e.amt.toFixed(2)}</span>
-                        <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,padding:"2px 8px",borderRadius:20,background:e.type==="paper"?"rgba(130,110,200,0.18)":"rgba(70,150,50,0.18)",color:e.type==="paper"?"#4030a0":"#1a4a0a"}}>{e.type}</span>
+                        <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,fontWeight:600,color:e.type==="paper"?C.purple:(pos?C.green:"#B05050")}}>{pos?"+":""}${e.amt.toFixed(2)}</span>
+                        <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,padding:"2px 8px",borderRadius:3,background:C.border,color:C.textMid}}>{e.type}</span>
                       </div>
-                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#7a5a9a",margin:"2px 0 0"}}>{e.note||"—"} · {e.date}</p>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textLight,margin:"2px 0 0"}}>{e.note||"—"} · {e.date}</p>
                     </div>
-                    <span onClick={()=>removeTrade(e.id)} style={{cursor:"pointer",color:"#c08090",fontSize:17,padding:4}}>×</span>
+                    <span onClick={()=>removeTrade(e.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:17,padding:4}}>×</span>
                   </div>
                 );
               })
             }
-            <div style={{background:"rgba(190,210,235,0.2)",borderRadius:12,padding:"12px 14px",marginTop:6,border:"1px solid rgba(130,170,210,0.22)"}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#3a4a70",margin:0,lineHeight:1.6}}>💡 <strong>Rule:</strong> Don't go live until you're consistently profitable on paper for 30+ days.</p>
+            <div style={{background:C.ivory,borderRadius:5,padding:"12px 14px",marginTop:6,border:`1px solid ${C.border}`}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:0,lineHeight:1.6}}>Don't go live until consistently profitable on paper for 30+ days.</p>
             </div>
           </div>
         </>)}
@@ -841,27 +1293,27 @@ export default function Dashboard() {
         {/* ══ NETWORK ══ */}
         {tab==="network" && (<>
           <div style={cardStyle(0)}>
-            <SectionHead icon="🤝" title="Network Log" sub="One meaningful connection a week = 52 relationships intentionally built per year"/>
+            <SectionHead title="Network Log" sub="One meaningful connection a week — 52 relationships intentionally built per year"/>
             <input value={networkName} onChange={e=>setNetworkName(e.target.value)} placeholder="Name" style={{...inp,marginBottom:7}}/>
             <input value={networkNote} onChange={e=>setNetworkNote(e.target.value)} placeholder="How you met / what they do" style={{...inp,marginBottom:7}}/>
             <input value={networkFollowUp} onChange={e=>setNetworkFollowUp(e.target.value)} placeholder="Follow-up action (e.g. send IG, schedule call…)" style={{...inp,marginBottom:8}}/>
-            <button onClick={addNetwork} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890c8,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add Connection</button>
+            <button onClick={addNetwork} style={{width:"100%",padding:"10px",borderRadius:5,border:`1px solid ${C.border}`,cursor:"pointer",background:C.ivory,color:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add Connection</button>
             {networkLog.length===0
-              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No connections logged yet — who did you meet this week?</p>
+              ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textFaint,fontStyle:"italic",textAlign:"center",padding:"8px 0"}}>No connections logged yet — who did you meet this week?</p>
               : [...networkLog].reverse().map(n=>(
-                <div key={n.id} style={{padding:"12px 14px",borderRadius:12,marginBottom:8,background:n.done?"rgba(140,200,120,0.12)":"rgba(200,180,230,0.15)",border:`1px solid ${n.done?"rgba(100,170,80,0.25)":"rgba(180,150,220,0.3)"}`}}>
+                <div key={n.id} style={{padding:"12px 14px",borderRadius:5,marginBottom:8,background:n.done?"rgba(123,166,138,0.07)":C.ivory,border:`1px solid ${n.done?"rgba(123,166,138,0.3)":C.border}`}}>
                   <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
                     <div style={{flex:1}}>
-                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,fontWeight:600,color:"#2a1a3a",margin:"0 0 2px",textDecoration:n.done?"line-through":"none",opacity:n.done?0.6:1}}>{n.name}</p>
-                      {n.note&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:"#6a4a8a",margin:"0 0 2px"}}>{n.note}</p>}
-                      {n.followUp&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#9060b0",margin:"0 0 2px",fontStyle:"italic"}}>→ {n.followUp}</p>}
-                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#b090c0",margin:0}}>{n.date}</p>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,fontWeight:600,color:C.text,margin:"0 0 2px",textDecoration:n.done?"line-through":"none",opacity:n.done?0.55:1}}>{n.name}</p>
+                      {n.note&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:"0 0 2px"}}>{n.note}</p>}
+                      {n.followUp&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textLight,margin:"0 0 2px",fontStyle:"italic"}}>→ {n.followUp}</p>}
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:C.textFaint,margin:0}}>{n.date}</p>
                     </div>
                     <div style={{display:"flex",gap:6,flexShrink:0}}>
-                      <button onClick={()=>toggleNetworkDone(n.id)} style={{padding:"5px 10px",borderRadius:8,border:"none",cursor:"pointer",background:n.done?"rgba(100,170,80,0.2)":"rgba(160,130,200,0.2)",color:n.done?"#3a7a20":"#7040a0",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500}}>
+                      <button onClick={()=>toggleNetworkDone(n.id)} style={{padding:"5px 10px",borderRadius:4,border:`1px solid ${n.done?"rgba(123,166,138,0.4)":C.border}`,cursor:"pointer",background:n.done?"rgba(123,166,138,0.1)":"transparent",color:n.done?C.green:C.textMid,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500}}>
                         {n.done?"✓ Done":"Mark done"}
                       </button>
-                      <span onClick={()=>removeNetwork(n.id)} style={{cursor:"pointer",color:"#c08090",fontSize:17,padding:"4px 2px"}}>×</span>
+                      <span onClick={()=>removeNetwork(n.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:17,padding:"4px 2px"}}>×</span>
                     </div>
                   </div>
                 </div>
@@ -874,82 +1326,105 @@ export default function Dashboard() {
         {tab==="calendar" && (<>
           <div style={cardStyle(0)}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
-              <h3 style={{fontSize:18,fontWeight:500,color:"#1e0e2e",margin:0}}>{calMonth.toLocaleString("default",{month:"long",year:"numeric"})}</h3>
-              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{width:36,height:36,borderRadius:10,border:"1px solid rgba(200,180,220,0.4)",background:"rgba(240,232,250,0.5)",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()-1,1))} style={{width:34,height:34,borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+              <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:18,fontWeight:500,color:C.text,margin:0}}>{calMonth.toLocaleString("default",{month:"long",year:"numeric"})}</p>
+              <button onClick={()=>setCalMonth(d=>new Date(d.getFullYear(),d.getMonth()+1,1))} style={{width:34,height:34,borderRadius:4,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:4}}>
               {["Su","Mo","Tu","We","Th","Fr","Sa"].map(d=>(
-                <div key={d} style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#a080b0",padding:"4px 0"}}>{d}</div>
+                <div key={d} style={{textAlign:"center",fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:C.textLight,padding:"4px 0"}}>{d}</div>
               ))}
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
-              {Array(getFirstDayOfMonth(calMonth)).fill(null).map((_,i)=><div key={`empty-${i}`}/>)}
+              {Array(getFirstDayOfMonth(calMonth)).fill(null).map((_,i)=><div key={`e-${i}`}/>)}
               {Array(getDaysInMonth(calMonth)).fill(null).map((_,i)=>{
-                const dayNum = i+1;
-                const dayDate = new Date(calMonth.getFullYear(), calMonth.getMonth(), dayNum);
-                const dayKey = calDayKey(dayDate);
-                const isToday = dayKey === today_k;
-                const isSelected = dayKey === selectedDay;
-                const events = calEvents[dayKey] || [];
+                const dayNum=i+1;
+                const dayDate=new Date(calMonth.getFullYear(),calMonth.getMonth(),dayNum);
+                const dayKey=calDayKey(dayDate);
+                const isToday=dayKey===today_k;
+                const isSelected=dayKey===selectedDay;
+                const events=calEvents[dayKey]||[];
                 return (
-                  <div key={dayNum} onClick={()=>setSelectedDay(isSelected ? null : dayKey)} style={{textAlign:"center",padding:"6px 2px",borderRadius:10,cursor:"pointer",background:isSelected?"linear-gradient(135deg,#d0a0e0,#a070c0)":isToday?"rgba(180,140,220,0.2)":"rgba(240,232,250,0.3)",border:isToday?"2px solid rgba(160,120,200,0.5)":"1px solid transparent",transition:"all 0.15s"}}>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:isToday?700:400,color:isSelected?"#fff":isToday?"#6030a0":"#3a2a4a",margin:0}}>{dayNum}</p>
-                    {events.length>0&&<div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2,flexWrap:"wrap"}}>
-                      {events.slice(0,3).map(e=><div key={e.id} style={{width:5,height:5,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.8)":eventTypeColors[e.type]||"#c090d0"}}/>)}
-                    </div>}
+                  <div key={dayNum} onClick={()=>setSelectedDay(isSelected?null:dayKey)} style={{textAlign:"center",padding:"6px 2px",borderRadius:4,cursor:"pointer",background:isSelected?C.rose:isToday?C.roseLight:"transparent",border:`1px solid ${isSelected?C.rose:isToday?C.roseMid:C.border}`,transition:"all 0.12s"}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,fontWeight:isToday?700:400,color:isSelected?"#fff":isToday?C.rose:C.text,margin:0}}>{dayNum}</p>
+                    {events.length>0&&<div style={{display:"flex",justifyContent:"center",gap:2,marginTop:2,flexWrap:"wrap"}}>{events.slice(0,3).map(e=><div key={e.id} style={{width:4,height:4,borderRadius:"50%",background:isSelected?"rgba(255,255,255,0.7)":eventTypeColors[e.type]||C.rose}}/>)}</div>}
                   </div>
                 );
               })}
             </div>
-            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:12,paddingTop:10,borderTop:"1px solid rgba(200,180,220,0.2)"}}>
+            <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:12,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
               {Object.entries(eventTypeColors).map(([type,color])=>(
                 <div key={type} style={{display:"flex",alignItems:"center",gap:4}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:color}}/>
-                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#8060a0",textTransform:"capitalize"}}>{type}</span>
+                  <div style={{width:7,height:7,borderRadius:"50%",background:color}}/>
+                  <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textLight,textTransform:"capitalize"}}>{type}</span>
                 </div>
               ))}
             </div>
           </div>
+
           {selectedDay && (
             <div style={cardStyle(0.04)}>
-              <SectionHead icon="📅" title={new Date(selectedDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})} sub=""/>
-              <input value={newEvent} onChange={e=>setNewEvent(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addEvent()} placeholder="Add appointment, bill, or reminder…" style={{...inp,marginBottom:8}}/>
-              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                {Object.entries(eventTypeColors).map(([type,color])=>(
-                  <button key={type} onClick={()=>setEventType(type)} style={{padding:"5px 12px",borderRadius:20,border:"none",cursor:"pointer",background:eventType===type?color:"rgba(235,225,248,0.7)",color:eventType===type?"#fff":"#8060a0",fontFamily:"'DM Sans',sans-serif",fontSize:11.5,fontWeight:500,textTransform:"capitalize",transition:"all 0.2s"}}>{type}</button>
-                ))}
+              <SectionHead title={new Date(selectedDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}/>
+
+              {/* Event form */}
+              <div style={{background:C.ivory,borderRadius:5,padding:"14px",marginBottom:14,border:`1px solid ${C.border}`}}>
+                <input value={newEvent.text} onChange={e=>setNewEvent(v=>({...v,text:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addEvent()} placeholder="Event title…" style={{...inp,marginBottom:8}}/>
+                <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                  {Object.entries(eventTypeColors).map(([type,color])=>(
+                    <button key={type} onClick={()=>setNewEvent(v=>({...v,type}))} style={{padding:"5px 12px",borderRadius:4,border:`1px solid ${newEvent.type===type?color:C.border}`,cursor:"pointer",background:newEvent.type===type?`${color}20`:"transparent",color:newEvent.type===type?color:C.textLight,fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:500,textTransform:"capitalize"}}>{type}</button>
+                  ))}
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}>
+                  <input value={newEvent.time} onChange={e=>setNewEvent(v=>({...v,time:e.target.value}))} placeholder="Time (e.g. 2:00 PM)" style={{...inp,fontSize:12}}/>
+                  <input value={newEvent.location} onChange={e=>setNewEvent(v=>({...v,location:e.target.value}))} placeholder="Location (optional)" style={{...inp,fontSize:12}}/>
+                </div>
+                <textarea value={newEvent.description} onChange={e=>setNewEvent(v=>({...v,description:e.target.value}))} placeholder="Description or notes (optional)" style={{...inp,minHeight:50,lineHeight:1.5,fontSize:12,marginBottom:8}}/>
+                <button onClick={addEvent} style={{width:"100%",padding:"9px",borderRadius:4,border:`1px solid ${C.roseMid}`,cursor:"pointer",background:C.roseLight,color:C.rose,fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500}}>+ Add Event</button>
               </div>
-              <button onClick={addEvent} style={{width:"100%",padding:"10px",borderRadius:12,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#c890d0,#9060b0)",color:"#fff",fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,marginBottom:14}}>+ Add</button>
+
               {(calEvents[selectedDay]||[]).length===0
-                ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"rgba(130,100,150,0.45)",fontStyle:"italic",textAlign:"center"}}>Nothing scheduled — tap above to add</p>
+                ? <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textFaint,fontStyle:"italic",textAlign:"center"}}>Nothing scheduled yet</p>
                 : (calEvents[selectedDay]||[]).map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,marginBottom:6,background:`${eventTypeColors[e.type]||"#c090d0"}14`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}35`}}>
-                    <div style={{width:8,height:8,borderRadius:"50%",background:eventTypeColors[e.type]||"#c090d0",flexShrink:0}}/>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:"#2a1a3a",flex:1,margin:0}}>{e.text}</p>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9070b0",textTransform:"capitalize",flexShrink:0}}>{e.type}</span>
-                    <span onClick={()=>removeEvent(selectedDay,e.id)} style={{cursor:"pointer",color:"#c08090",fontSize:17,padding:4,flexShrink:0}}>×</span>
+                  <div key={e.id} style={{padding:"12px 14px",borderRadius:5,marginBottom:6,background:"#FFFFFF",border:`1px solid ${C.border}`}}>
+                    <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:eventTypeColors[e.type]||C.rose,flexShrink:0,marginTop:5}}/>
+                      <div style={{flex:1}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13.5,color:C.text,margin:0,fontWeight:500}}>{e.text}</p>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textTransform:"capitalize"}}>{e.type}</span>
+                            <span onClick={()=>removeEvent(selectedDay,e.id)} style={{cursor:"pointer",color:C.textFaint,fontSize:17}}>×</span>
+                          </div>
+                        </div>
+                        {(e.time||e.location) && (
+                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textLight,margin:"3px 0 0"}}>{[e.time,e.location].filter(Boolean).join(" · ")}</p>
+                        )}
+                        {e.description && (
+                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,margin:"4px 0 0",lineHeight:1.5}}>{e.description}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))
               }
             </div>
           )}
+
           {(() => {
-            const upcoming = [];
-            for (let i=0; i<30; i++) {
-              const d = new Date(); d.setDate(d.getDate()+i);
-              const k = calDayKey(d);
-              if (calEvents[k]?.length) calEvents[k].forEach(e => upcoming.push({...e, date:k, dateLabel: d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}));
-            }
-            if (!upcoming.length) return null;
+            const upcoming=[];
+            for(let i=0;i<30;i++){const d=new Date();d.setDate(d.getDate()+i);const k=calDayKey(d);if(calEvents[k]?.length){calEvents[k].forEach(e=>upcoming.push({...e,date:k,dateLabel:d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}));}}
+            if(!upcoming.length) return null;
             return (
               <div style={cardStyle(0.08)}>
-                <SectionHead icon="🔜" title="Upcoming (Next 30 Days)" sub=""/>
+                <SectionHead title="Upcoming — Next 30 Days"/>
                 {upcoming.map(e=>(
-                  <div key={e.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,marginBottom:5,background:`${eventTypeColors[e.type]||"#c090d0"}10`,border:`1px solid ${eventTypeColors[e.type]||"#c090d0"}28`}}>
-                    <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:eventTypeColors[e.type]||"#9060c0",minWidth:36,flexShrink:0}}>{e.dateLabel}</div>
-                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:"#2a1a3a",flex:1,margin:0}}>{e.text}</p>
-                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#b090c0",textTransform:"capitalize",flexShrink:0}}>{e.type}</span>
+                  <div key={e.id} style={{display:"flex",alignItems:"flex-start",gap:10,padding:"9px 0",borderBottom:`1px solid ${C.border}`}}>
+                    <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:eventTypeColors[e.type]||C.rose,minWidth:40,flexShrink:0,marginTop:1}}>{e.dateLabel}</div>
+                    <div style={{flex:1}}>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.text,margin:0}}>{e.text}</p>
+                      {(e.time||e.location) && <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:C.textLight,margin:"2px 0 0"}}>{[e.time,e.location].filter(Boolean).join(" · ")}</p>}
+                    </div>
+                    <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textTransform:"capitalize",flexShrink:0}}>{e.type}</span>
                   </div>
                 ))}
               </div>
@@ -960,51 +1435,136 @@ export default function Dashboard() {
         {/* ══ NOTES ══ */}
         {tab==="notes" && (<>
           <div style={cardStyle(0)}>
-            <SectionHead icon="📓" title="Daily Reflection" sub=""/>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,background:"rgba(200,180,220,0.15)",borderRadius:12,padding:"8px 12px"}}>
-              <button onClick={()=>{const d=new Date(viewDay+"T12:00:00");d.setDate(d.getDate()-1);setViewDay(localDateStr(d));}} style={{width:32,height:32,borderRadius:8,border:"1px solid rgba(200,180,220,0.4)",background:"transparent",color:"#7050a0",fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+            <SectionHead title="Daily Reflection"/>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,background:C.ivory,borderRadius:5,padding:"8px 12px",border:`1px solid ${C.border}`}}>
+              <button onClick={()=>{const d=new Date(viewDay+"T12:00:00");d.setDate(d.getDate()-1);setViewDay(localDateStr(d));}} style={{width:30,height:30,borderRadius:3,border:`1px solid ${C.border}`,background:"transparent",color:C.textMid,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
               <div style={{textAlign:"center"}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:600,color:"#3a2a4a",margin:0}}>
-                  {viewDay===today_k?"Today ✦":new Date(viewDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
-                </p>
-                {viewDay!==today_k&&<button onClick={()=>setViewDay(today_k)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"#9060c0",background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0,marginTop:2}}>back to today</button>}
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,fontWeight:500,color:C.text,margin:0}}>{viewDay===today_k?"Today":new Date(viewDay+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}</p>
+                {viewDay!==today_k&&<button onClick={()=>setViewDay(today_k)} style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:C.rose,background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0,marginTop:2}}>back to today</button>}
               </div>
-              <button onClick={()=>{const d=new Date(viewDay+"T12:00:00");d.setDate(d.getDate()+1);const next=localDateStr(d);if(next<=today_k)setViewDay(next);}} style={{width:32,height:32,borderRadius:8,border:"1px solid rgba(200,180,220,0.4)",background:"transparent",color:viewDay===today_k?"#d0c0e0":"#7050a0",fontSize:18,cursor:viewDay===today_k?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+              <button onClick={()=>{const d=new Date(viewDay+"T12:00:00");d.setDate(d.getDate()+1);const next=localDateStr(d);if(next<=today_k)setViewDay(next);}} style={{width:30,height:30,borderRadius:3,border:`1px solid ${C.border}`,background:"transparent",color:viewDay===today_k?C.textFaint:C.textMid,fontSize:16,cursor:viewDay===today_k?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
             </div>
             <textarea value={(data.notes||{})[viewDay]||""} onChange={e=>setData(p=>({...p,notes:{...p.notes,[viewDay]:e.target.value}}))}
               placeholder="Body… Energy… Mindset… What I'm proud of… What I'm releasing… What I'm calling in…"
-              style={{...inp,minHeight:190,resize:"vertical",lineHeight:1.75,fontSize:15,fontFamily:"'Playfair Display',Georgia,serif"}}/>
-            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10.5,color:"rgba(150,120,180,0.5)",textAlign:"right",marginTop:5}}>Saved automatically ✦</p>
+              style={{...inp,minHeight:190,lineHeight:1.75,fontSize:15,fontFamily:"'Cormorant Garamond',Georgia,serif"}}/>
+            <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,textAlign:"right",marginTop:5}}>Saved automatically</p>
           </div>
 
+          {/* Monthly Progress — overall only, no hair/skin/overall text boxes */}
           <div style={cardStyle(0.04)}>
-            <SectionHead icon="📸" title="Monthly Progress" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} — document your results, not just your effort`}/>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              {[
-                {key:"hairProgress", icon:"🪷", label:"Hair", color:"#c0a0e0", placeholder:"Shedding level, thickness, scalp health, gray patch update…"},
-                {key:"skinProgress", icon:"✨", label:"Skin", color:"#e8a0b0", placeholder:"Texture, brightness, breakouts, how your protocol is working…"},
-              ].map(({key,icon,label,color,placeholder})=>(
-                <div key={key} style={{background:`${color}14`,borderRadius:14,padding:"12px 14px",border:`1px solid ${color}40`}}>
-                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#3a2a4a",margin:"0 0 6px",display:"flex",alignItems:"center",gap:5}}><span>{icon}</span>{label}</p>
-                  <textarea value={(data.monthProgress||{})[month_k]?.[key]||""} onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],[key]:e.target.value}}}))} placeholder={placeholder} style={{...inp,minHeight:80,resize:"vertical",lineHeight:1.6,fontSize:12,padding:"7px 10px",background:"rgba(255,252,255,0.7)"}}/>
-                </div>
-              ))}
-            </div>
-            <div style={{background:"rgba(200,180,230,0.12)",borderRadius:14,padding:"12px 14px",border:"1px solid rgba(180,150,220,0.25)"}}>
-              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:"#3a2a4a",margin:"0 0 6px"}}>💰 Overall this month</p>
-              <textarea value={(data.monthProgress||{})[month_k]?.overall||""} onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],overall:e.target.value}}}))} placeholder="Energy levels, body changes, mood patterns, financial movement, wins you're most proud of…" style={{...inp,minHeight:70,resize:"vertical",lineHeight:1.6,fontSize:12,background:"rgba(255,252,255,0.7)"}}/>
+            <SectionHead title="Monthly Progress" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} — document your results`}/>
+            <div style={{background:C.ivory,borderRadius:5,padding:"14px",border:`1px solid ${C.border}`}}>
+              <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color:C.textMid,margin:"0 0 8px"}}>This month</p>
+              <textarea value={(data.monthProgress||{})[month_k]?.overall||""} onChange={e=>setData(p=>({...p,monthProgress:{...p.monthProgress,[month_k]:{...(p.monthProgress||{})[month_k],overall:e.target.value}}}))} placeholder="Energy levels, body changes, mood patterns, financial movement, wins you're most proud of…" style={{...inp,minHeight:80,lineHeight:1.6,fontSize:13,background:"#FFFFFF"}}/>
             </div>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {/* Monthly Report */}
+          {(() => {
+            const [reportYear, reportMonthNum] = month_k.split("-").map(Number);
+            const daysInMonth = new Date(reportYear, reportMonthNum, 0).getDate();
+            const allDays = Array.from({length: daysInMonth}, (_, i) => {
+              const d = `${reportYear}-${String(reportMonthNum).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
+              return { key: d, habits: (data.daily||{})[d] || {} };
+            });
+            const daysWithData = allDays.filter(d => Object.keys(d.habits).length > 0);
+            const totalDays = daysWithData.length;
+            const avgCompletion = totalDays > 0 ? Math.round(daysWithData.reduce((s,d) => {
+              const checks = DAILY_SCORE_CHECKS.filter(hk => d.habits[hk]).length;
+              const tea = (d.habits.teas||[]).length>0?1:0;
+              const fiber = (d.habits.fiber||[]).reduce((s,e)=>s+e.g,0)>=25?1:0;
+              const mood = (d.habits.mood||0)>0?1:0;
+              const win = (d.habits.win||"").length>5?1:0;
+              return s + ((checks+tea+fiber+mood+win)/totalChecks)*100;
+            }, 0) / totalDays) : 0;
+            const moodDays = daysWithData.filter(d => d.habits.mood > 0);
+            const avgMood = moodDays.length > 0 ? (moodDays.reduce((s,d) => s + (d.habits.mood||0), 0) / moodDays.length).toFixed(1) : null;
+            const moodLabels = ["","Rough","Low","Okay","Good","Thriving"];
+            const fiberDaysHit = daysWithData.filter(d => (d.habits.fiber||[]).reduce((s,e)=>s+e.g,0) >= 25).length;
+            const wins = daysWithData.filter(d => d.habits.win && d.habits.win.trim().length > 0);
+            let bestStreak = 0, currentStreak = 0;
+            allDays.forEach(d => {
+              const checks = DAILY_SCORE_CHECKS.filter(hk => d.habits[hk]).length;
+              const tea = (d.habits.teas||[]).length>0?1:0;
+              const fiber = (d.habits.fiber||[]).reduce((s,e)=>s+e.g,0)>=25?1:0;
+              const mood = (d.habits.mood||0)>0?1:0;
+              const win = (d.habits.win||"").length>5?1:0;
+              if (((checks+tea+fiber+mood+win)/totalChecks) >= 0.6) { currentStreak++; bestStreak = Math.max(bestStreak, currentStreak); } else currentStreak = 0;
+            });
+            const statCard = (icon, label, value, sub, color) => (
+              <div style={{background:C.ivory,borderRadius:5,padding:"12px 10px",border:`1px solid ${C.border}`,textAlign:"center"}}>
+                <p style={{fontSize:15,margin:"0 0 2px"}}>{icon}</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:20,fontWeight:500,color,margin:0,lineHeight:1}}>{value}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:9.5,color:C.textLight,margin:"3px 0 1px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.8}}>{label}</p>
+                {sub&&<p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textFaint,margin:0}}>{sub}</p>}
+              </div>
+            );
+            return (
+              <div style={cardStyle(0.08)}>
+                <SectionHead title="Monthly Report" sub={`${today.toLocaleString("default",{month:"long",year:"numeric"})} · ${totalDays} active days`}/>
+                {totalDays === 0 ? (
+                  <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:13,color:C.textFaint,fontStyle:"italic",textAlign:"center",padding:"16px 0"}}>No data yet this month — start checking off habits</p>
+                ) : (<>
+                  <div style={{background:C.ivory,borderRadius:5,padding:"16px",marginBottom:14,textAlign:"center",border:`1px solid ${C.border}`}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:52,fontWeight:500,color:C.rose,margin:0,lineHeight:1}}>{avgCompletion}%</p>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,margin:"6px 0 0",textTransform:"uppercase",letterSpacing:2}}>Average Daily Completion</p>
+                    <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:13,color:C.textMid,margin:"4px 0 0",fontStyle:"italic"}}>{avgCompletion>=80?"Outstanding month":avgCompletion>=60?"Solid effort — keep building":avgCompletion>=40?"Good start — push harder next month":"Every day is a new chance"}</p>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                    {statCard("🔥","Best Streak",`${bestStreak}d`,"consecutive","#C9A870")}
+                    {statCard("🌡️","Avg Mood",avgMood?`${avgMood}/5`:"—",avgMood?moodLabels[Math.round(parseFloat(avgMood))]:"no data","#7BA68A")}
+                    {statCard("🌱","Fiber",`${fiberDaysHit}d`,"hit 25g+","#7BA68A")}
+                    {statCard("💰","Income",`$${totalIncome.toFixed(0)}`,`${monthIncome.length} entries`,"#7BA68A")}
+                    {statCard("📈","Paper P&L",`${totalPaper>=0?"+":""}$${Math.abs(totalPaper).toFixed(0)}`,`${monthTrades.filter(t=>t.type==="paper").length} trades`,"#8A7BA6")}
+                    {statCard("◆","Wins",`${wins.length}d`,"days with a win","#C9A870")}
+                  </div>
+                  <div style={{background:C.ivory,borderRadius:5,padding:"14px",marginBottom:14,border:`1px solid ${C.border}`}}>
+                    <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,color:C.textLight,margin:"0 0 12px",textTransform:"uppercase",letterSpacing:1}}>Habit Breakdown</p>
+                    {[
+                      {k:"vitaminIron",label:"Iron supplement"},{k:"vitaminD",label:"Vitamin D"},
+                      {k:"sleep7",label:"7–9hrs sleep"},{k:"skincareAM",label:"AM skincare"},
+                      {k:"todayTreatment",label:"PM treatment"},{k:"skincarePM",label:"PM moisturize"},
+                      {k:"journaled",label:"Journaled"},
+                    ].map(({k,label}) => {
+                      const count = daysWithData.filter(d=>d.habits[k]).length;
+                      const pctH = totalDays > 0 ? Math.round((count/totalDays)*100) : 0;
+                      const color = pctH >= 80 ? C.green : pctH >= 50 ? C.gold : C.rose;
+                      return (
+                        <div key={k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:12,color:C.textMid,flex:1,minWidth:110}}>{label}</span>
+                          <div style={{flex:2,height:3,borderRadius:2,background:C.border,overflow:"hidden"}}>
+                            <div style={{height:"100%",width:`${pctH}%`,background:color,borderRadius:2,transition:"width 0.5s ease"}}/>
+                          </div>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,fontWeight:600,color,minWidth:36,textAlign:"right"}}>{pctH}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {wins.length > 0 && (
+                    <div style={{background:C.ivory,borderRadius:5,padding:"14px",border:`1px solid ${C.border}`}}>
+                      <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,fontWeight:600,color:C.textLight,margin:"0 0 12px",textTransform:"uppercase",letterSpacing:1}}>Wins this month</p>
+                      {wins.slice(-10).map(d=>(
+                        <div key={d.key} style={{display:"flex",gap:10,marginBottom:8,paddingBottom:8,borderBottom:`1px solid ${C.border}`,alignItems:"flex-start"}}>
+                          <span style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,minWidth:46,flexShrink:0,marginTop:2}}>{new Date(d.key+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+                          <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:12.5,color:C.textMid,margin:0,lineHeight:1.5}}>{d.habits.win}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>)}
+              </div>
+            );
+          })()}
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {[
-              {l:"Streak",v:`${streak}d ${streakEmoji(streak)}`,s:streak>=7?"Don't break the chain":streak>=1?"Keep going":"Start today",c:"#b890d0"},
-              {l:"Today",v:`${pct}%`,s:`${doneCount}/${totalChecks} complete`,c:"#9878c0"},
+              {l:"Streak",v:`${streak}d`,s:streak>=7?"Don't break the chain":streak>=1?"Keep going":"Start today",c:C.rose},
+              {l:"Today",v:`${pct}%`,s:`${doneCount}/${totalChecks} done`,c:C.rose},
             ].map(s=>(
-              <div key={s.l} style={{...cardStyle(0),marginBottom:0,padding:"15px 16px"}}>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:"#a080c0",letterSpacing:1.2,textTransform:"uppercase",margin:0}}>{s.l}</p>
-                <p style={{fontSize:28,fontWeight:400,color:s.c,margin:"3px 0 2px",fontStyle:"italic"}}>{s.v}</p>
-                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:"#9070b0",margin:0}}>{s.s}</p>
+              <div key={s.l} style={{...cardStyle(0),marginBottom:0,padding:"16px"}}>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:10,color:C.textLight,letterSpacing:1.2,textTransform:"uppercase",margin:0}}>{s.l}</p>
+                <p style={{fontFamily:"'Cormorant Garamond',Georgia,serif",fontSize:30,fontWeight:500,color:s.c,margin:"3px 0 2px",fontStyle:"italic"}}>{s.v}</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11.5,color:C.textLight,margin:0}}>{s.s}</p>
               </div>
             ))}
           </div>
